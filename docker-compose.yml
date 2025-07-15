@@ -1,0 +1,80 @@
+services:
+  # База данных
+  postgres:
+    image: postgres:15-alpine
+    container_name: naradi_postgres
+    environment:
+      POSTGRES_DB: naradi_db
+      POSTGRES_USER: naradi_user
+      POSTGRES_PASSWORD: naradi_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - naradi_network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: naradi_backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://naradi_user:naradi_password@postgres:5432/naradi_db
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - naradi_network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: naradi_frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - naradi_network
+
+  # Redis для кэширования
+  redis:
+    image: redis:7-alpine
+    container_name: naradi_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - naradi_network
+
+  # Nginx обратный прокси
+  nginx:
+    image: nginx:alpine
+    container_name: naradi_nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - naradi_network
+
+volumes:
+  postgres_data:
+
+networks:
+  naradi_network:
+    driver: bridge 
