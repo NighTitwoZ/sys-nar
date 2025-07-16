@@ -1,11 +1,17 @@
-import React, { useState } from 'react'
-import { api } from '../services/api'
-import { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../services/api';
+import DateRangePicker from '../components/DateRangePicker';
+
+interface Department {
+  id: number;
+  name: string;
+  description?: string | null;
+}
 
 interface DepartmentDistribution {
-  department_id: number
-  department_name: string
-  duties: any[]
+  department_id: number;
+  department_name: string;
+  duties: any[];
 }
 
 interface DutyRecord {
@@ -16,23 +22,35 @@ interface DutyRecord {
   department_name: string;
   duty_type_id: number;
   duty_type_name: string;
+  people_per_day?: number;
 }
 
 const DutyDistributionPage: React.FC = () => {
-  const [year, setYear] = useState<number>(new Date().getFullYear())
-  const [month, setMonth] = useState<number>(new Date().getMonth() + 1)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [distribution, setDistribution] = useState<DepartmentDistribution[]>([])
-  const [selectedDepartment, setSelectedDepartment] = useState<DepartmentDistribution | null>(null)
-  const [departmentDuties, setDepartmentDuties] = useState<DutyRecord[]>([])
-  const [showModal, setShowModal] = useState(false)
+  const [year, setYear] = useState<number>(new Date().getFullYear());
+  const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
+  const [dateRange, setDateRange] = useState<{ startDate: Date | null; endDate: Date | null }>({
+    startDate: null,
+    endDate: null
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [distribution, setDistribution] = useState<DepartmentDistribution[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<DepartmentDistribution | null>(null);
+  const [departmentDuties, setDepartmentDuties] = useState<DutyRecord[]>([]);
+  const [showModal, setShowModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'departments' | 'duties'>('departments');
   const [dutyTypes, setDutyTypes] = useState<any[]>([]);
   const [selectedDutyType, setSelectedDutyType] = useState<any | null>(null);
   const [dutyTypeRecords, setDutyTypeRecords] = useState<any[]>([]);
   const [loadingDutyTypes, setLoadingDutyTypes] = useState(false);
   const [allDuties, setAllDuties] = useState<DutyRecord[]>([]);
+
+  // Новое состояние для структур и подразделений
+  const [structures, setStructures] = useState<Department[]>([]);
+  const [selectedStructureId, setSelectedStructureId] = useState<number | 'all' | null>(null);
+  const [subdepartments, setSubdepartments] = useState<Department[]>([]);
+  const [selectedSubdepartmentId, setSelectedSubdepartmentId] = useState<number | null>(null);
+  const [subLoading, setSubLoading] = useState(false);
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
@@ -94,28 +112,106 @@ const DutyDistributionPage: React.FC = () => {
     }
   };
 
-  const handleGenerate = async () => {
-    setLoading(true)
-    setError(null)
-    setDistribution([])
-    setSelectedDepartment(null)
-    setShowModal(false)
-    try {
-      const response = await api.post('/duty-distribution/generate', { year, month })
-      setDistribution(response.data)
-    } catch (err) {
-      setError('Ошибка при генерации нарядов')
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    fetchStructures();
+  }, []);
+
+  useEffect(() => {
+    if (selectedStructureId && selectedStructureId !== 'all') {
+      fetchSubdepartments(selectedStructureId);
+    } else {
+      setSubdepartments([]);
+      setSelectedSubdepartmentId(null);
     }
-  }
+  }, [selectedStructureId]);
+
+  const fetchStructures = async () => {
+    try {
+      const response = await api.get('/departments/with-stats');
+      setStructures(response.data);
+    } catch (err) {
+      setStructures([]);
+    }
+  };
+
+  const fetchSubdepartments = async (structureId: number) => {
+    setSubLoading(true);
+    try {
+      const response = await api.get(`/departments/${structureId}/subdepartments-with-stats`);
+      setSubdepartments(response.data);
+    } catch (err) {
+      setSubdepartments([]);
+    } finally {
+      setSubLoading(false);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!dateRange.startDate || !dateRange.endDate || !selectedStructureId) {
+      setError('Выберите период и структуру/подразделение');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setDistribution([]);
+    setSelectedDepartment(null);
+    setShowModal(false);
+    
+    try {
+      // Создаем даты без учета времени, чтобы избежать проблем с часовым поясом
+      const formatDateForAPI = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const requestData: any = {
+        start_date: formatDateForAPI(dateRange.startDate),
+        end_date: formatDateForAPI(dateRange.endDate)
+      };
+
+      // Если выбрана конкретная структура и подразделение
+      if (selectedStructureId !== 'all' && selectedSubdepartmentId) {
+        requestData.department_id = selectedSubdepartmentId;
+      } else if (selectedStructureId !== 'all') {
+        // Если выбрана только структура (без подразделения)
+        requestData.structure_id = selectedStructureId;
+      }
+      // Если выбраны "Все структуры", отправляем без ограничений
+
+      const response = await api.post('/duty-distribution/generate', requestData);
+      setDistribution(response.data);
+    } catch (err) {
+      setError('Ошибка при генерации нарядов');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDepartmentClick = async (dept: DepartmentDistribution) => {
     setSelectedDepartment(dept)
     setShowModal(true)
     setDepartmentDuties([])
     try {
-      const response = await api.get(`/duty-distribution/department/${dept.department_id}`)
+      // Формируем даты для запроса
+      const formatDateForAPI = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const startDate = dateRange.startDate ? formatDateForAPI(dateRange.startDate) : '';
+      const endDate = dateRange.endDate ? formatDateForAPI(dateRange.endDate) : '';
+      
+      const response = await api.get(`/duty-distribution/department/${dept.department_id}`, {
+        params: {
+          start_date: startDate,
+          end_date: endDate
+        }
+      })
       setDepartmentDuties(response.data)
     } catch (err) {
       setError('Ошибка при загрузке нарядов подразделения')
@@ -137,15 +233,76 @@ const DutyDistributionPage: React.FC = () => {
   };
 
   const handleClearDuties = async () => {
+    if (!dateRange.startDate || !dateRange.endDate || !selectedStructureId) {
+      setError('Выберите период и структуру/подразделение');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      await api.delete(`/duty-distribution/clear?year=${year}&month=${month}`);
+      // Создаем даты без учета времени, чтобы избежать проблем с часовым поясом
+      const formatDateForAPI = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const requestData: any = {
+        start_date: formatDateForAPI(dateRange.startDate),
+        end_date: formatDateForAPI(dateRange.endDate)
+      };
+
+      // Если выбрана конкретная структура и подразделение
+      if (selectedStructureId !== 'all' && selectedSubdepartmentId) {
+        requestData.department_id = selectedSubdepartmentId;
+      } else if (selectedStructureId !== 'all') {
+        // Если выбрана только структура (без подразделения)
+        requestData.structure_id = selectedStructureId;
+      }
+      // Если выбраны "Все структуры", отправляем без ограничений
+
+      await api.delete('/duty-distribution/clear', { data: requestData });
       setDistribution([]);
       setSelectedDepartment(null);
       setShowModal(false);
+      // Обновляем список всех нарядов
+      await fetchAllDuties();
     } catch (err) {
       setError('Ошибка при очистке нарядов');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteDepartmentDuties = async () => {
+    if (!selectedDepartment) {
+      setError('Ошибка: не выбрано подразделение');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      // Используем год и месяц для определения периода
+      const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      const endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
+
+      const requestData = {
+        start_date: startDate,
+        end_date: endDate,
+        department_id: selectedDepartment.department_id
+      };
+
+      await api.delete('/duty-distribution/clear', { data: requestData });
+      setShowModal(false);
+      setSelectedDepartment(null);
+      // Обновляем список всех нарядов
+      await fetchAllDuties();
+    } catch (err) {
+      setError('Ошибка при удалении нарядов подразделения');
     } finally {
       setLoading(false);
     }
@@ -198,12 +355,19 @@ const DutyDistributionPage: React.FC = () => {
     };
     // Строим мапу: сотрудник -> дата -> тип наряда
     const dutyMap: Record<string, Record<string, string>> = {};
+    // Считаем количество нарядов для каждого сотрудника
+    const employeeDutyCounts: Record<string, number> = {};
+    
     for (const emp of employees) {
       dutyMap[emp] = {};
+      employeeDutyCounts[emp] = 0;
     }
+    
     for (const duty of departmentDuties) {
       dutyMap[duty.employee_name][duty.date] = duty.duty_type_name;
+      employeeDutyCounts[duty.employee_name]++;
     }
+    
     return (
       <div className="overflow-x-auto max-h-[calc(90vh-120px)]">
         <table className="min-w-full divide-y divide-gray-200">
@@ -213,6 +377,7 @@ const DutyDistributionPage: React.FC = () => {
               {dates.map(date => (
                 <th key={date} className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{formatDate(date)}</th>
               ))}
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Всего нарядов</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -228,6 +393,11 @@ const DutyDistributionPage: React.FC = () => {
                     ) : ''}
                   </td>
                 ))}
+                <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 text-center">
+                  <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs">
+                    {employeeDutyCounts[emp]}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -274,6 +444,7 @@ const DutyDistributionPage: React.FC = () => {
     );
   };
 
+  // Новый UI выбора дат, структуры и подразделения
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -285,41 +456,55 @@ const DutyDistributionPage: React.FC = () => {
             </p>
           </div>
         </div>
-        <div className="flex items-center space-x-4 mb-6">
-          <label className="text-sm">Год:
-            <input
-              type="number"
-              value={year}
-              onChange={e => setYear(Number(e.target.value))}
-              className="ml-2 px-2 py-1 border rounded"
-              min={2020}
-              max={2100}
+        <div className="flex flex-wrap items-center gap-4 mb-6">
+          {/* Календарь */}
+          <div className="w-64">
+            <DateRangePicker
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              placeholder="Выберите период"
             />
-          </label>
-          <label className="text-sm">Месяц:
-            <input
-              type="number"
-              value={month}
-              onChange={e => setMonth(Number(e.target.value))}
-              className="ml-2 px-2 py-1 border rounded"
-              min={1}
-              max={12}
-            />
-          </label>
+          </div>
+          {/* Структура */}
+          <div>
+            <select
+              className="px-3 py-2 border rounded min-w-[180px]"
+              value={selectedStructureId ?? ''}
+              onChange={e => {
+                const val = e.target.value;
+                setSelectedStructureId(val === 'all' ? 'all' : val ? Number(val) : null);
+              }}
+            >
+              <option value="">Выберите структуру</option>
+              <option value="all">Все структуры</option>
+              {structures.map(structure => (
+                <option key={structure.id} value={structure.id}>{structure.name}</option>
+              ))}
+            </select>
+          </div>
+          {/* Подразделение */}
+          <div>
+            <select
+              className="px-3 py-2 border rounded min-w-[180px]"
+              value={selectedSubdepartmentId ?? ''}
+              onChange={e => setSelectedSubdepartmentId(e.target.value ? Number(e.target.value) : null)}
+              disabled={!selectedStructureId || selectedStructureId === 'all' || subLoading}
+            >
+              <option value="">Выберите подразделение</option>
+              {subdepartments.map(sub => (
+                <option key={sub.id} value={sub.id}>{sub.name}</option>
+              ))}
+            </select>
+          </div>
+          {/* Кнопка генерации */}
           <button
             onClick={handleGenerate}
-            disabled={loading}
+            disabled={loading || !dateRange.startDate || !dateRange.endDate || !selectedStructureId || (selectedStructureId !== 'all' && !selectedSubdepartmentId)}
             className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
           >
             {loading ? 'Генерация...' : 'Сгенерировать наряды'}
           </button>
-          <button
-            onClick={handleClearDuties}
-            disabled={loading}
-            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
-          >
-            Очистить наряды за месяц
-          </button>
+
         </div>
         {/* Вкладки */}
         <div className="mb-6 flex border-b">
@@ -353,7 +538,16 @@ const DutyDistributionPage: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-lg font-semibold text-gray-900">{dept.department_name}</h2>
-                        <p className="text-sm text-gray-500 mt-1">Нарядов: {dept.duties.length}</p>
+                        <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                          <span className="flex items-center">
+                            <span className="w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+                            Нарядов: {dept.duties.length}
+                          </span>
+                          <span className="flex items-center">
+                            <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+                            Заступает в сутки: {dept.duties.reduce((sum, duty) => sum + (duty.people_per_day || 0), 0)}
+                          </span>
+                        </div>
                       </div>
                       <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-indigo-100 text-indigo-700 font-bold">
                         {dept.duties.length}
@@ -377,6 +571,12 @@ const DutyDistributionPage: React.FC = () => {
                         className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                       >
                         Скачать Excel
+                      </button>
+                      <button
+                        onClick={handleDeleteDepartmentDuties}
+                        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                      >
+                        Удалить
                       </button>
                       <button
                         onClick={() => setShowModal(false)}
@@ -409,6 +609,13 @@ const DutyDistributionPage: React.FC = () => {
                       <div>
                         <h2 className="text-lg font-semibold text-gray-900">{dt.name}</h2>
                         <p className="text-sm text-gray-500 mt-1">{dt.description || '—'}</p>
+                        <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 mt-2 ${
+                          dt.duty_category === 'academic' 
+                            ? 'bg-purple-100 text-purple-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {dt.duty_category === 'academic' ? 'Академический' : 'По подразделению'}
+                        </span>
                       </div>
                       <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-indigo-100 text-indigo-700 font-bold">
                         {dt.people_per_day}

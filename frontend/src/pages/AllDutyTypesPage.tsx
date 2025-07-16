@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import { api } from '../services/api'
 
-interface DutyTypeWithDepartment {
+interface DutyType {
   id: number
   name: string
   description: string | null
   priority: number
   people_per_day: number
-  duty_category: string
-  department_name: string
 }
 
 const AllDutyTypesPage: React.FC = () => {
-  const [dutyTypes, setDutyTypes] = useState<DutyTypeWithDepartment[]>([])
+  const [dutyTypes, setDutyTypes] = useState<DutyType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,7 +21,7 @@ const AllDutyTypesPage: React.FC = () => {
   const fetchAllDutyTypes = async () => {
     try {
       setLoading(true)
-      const response = await api.get('/duty-types/all-with-departments')
+      const response = await api.get('/duty-types/unique')
       setDutyTypes(response.data)
       setError(null)
     } catch (err) {
@@ -54,7 +52,7 @@ const AllDutyTypesPage: React.FC = () => {
           <div className="sm:flex-auto">
             <h1 className="text-2xl font-semibold text-gray-900">Все наряды</h1>
             <p className="mt-2 text-sm text-gray-700">
-              Список всех типов нарядов во всех структурах и подразделениях
+              Список всех уникальных типов нарядов в системе
             </p>
           </div>
         </div>
@@ -84,16 +82,13 @@ const AllDutyTypesPage: React.FC = () => {
                   <thead className="bg-gray-50">
                     <tr>
                       <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
-                        Название наряда - Подразделение
-                      </th>
-                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Категория
+                        Название наряда
                       </th>
                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Описание
                       </th>
                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Приоритет
+                        Вид наряда
                       </th>
                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Человек/сутки
@@ -103,34 +98,26 @@ const AllDutyTypesPage: React.FC = () => {
                   <tbody className="divide-y divide-gray-200 bg-white">
                     {dutyTypes.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                        <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
                           Нет типов нарядов в системе
                         </td>
                       </tr>
                     ) : (
                       dutyTypes.map((dutyType) => (
-                        <tr key={`${dutyType.id}-${dutyType.department_name}`}>
+                        <tr key={dutyType.id}>
                           <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                            <div>
-                              <div className="font-semibold">{dutyType.name}</div>
-                              <div className="text-gray-500 text-xs">— {dutyType.department_name}</div>
-                            </div>
-                          </td>
-                          <td className="px-3 py-4 text-sm text-gray-500">
-                            <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                              dutyType.duty_category === 'internal' 
-                                ? 'bg-blue-100 text-blue-800' 
-                                : 'bg-purple-100 text-purple-800'
-                            }`}>
-                              {dutyType.duty_category === 'internal' ? 'Внутри подразделения' : 'Академический'}
-                            </span>
+                            <div className="font-semibold">{dutyType.name}</div>
                           </td>
                           <td className="px-3 py-4 text-sm text-gray-500">
                             {dutyType.description || '-'}
                           </td>
                           <td className="px-3 py-4 text-sm text-gray-500">
-                            <span className="inline-flex rounded-full px-2 text-xs font-semibold leading-5 bg-blue-100 text-blue-800">
-                              {dutyType.priority}
+                            <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+                              dutyType.duty_category === 'academic' 
+                                ? 'bg-purple-100 text-purple-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {dutyType.duty_category === 'academic' ? 'Академический' : 'По подразделению'}
                             </span>
                           </td>
                           <td className="px-3 py-4 text-sm text-gray-500">

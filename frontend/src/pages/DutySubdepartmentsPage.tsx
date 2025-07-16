@@ -10,7 +10,7 @@ interface Department {
 }
 
 const DutySubdepartmentsPage: React.FC = () => {
-  const [subdepartments, setSubdepartments] = useState<Department[]>([])
+  const [subdepartments, setSubdepartments] = useState<any[]>([])
   const [structure, setStructure] = useState<Department | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -31,8 +31,8 @@ const DutySubdepartmentsPage: React.FC = () => {
       const structureResponse = await api.get(`/departments/${structureId}`)
       setStructure(structureResponse.data)
       
-      // Получаем подразделения структуры
-      const subdepartmentsResponse = await api.get(`/departments/${structureId}/subdepartments`)
+      // Получаем подразделения структуры с статистикой
+      const subdepartmentsResponse = await api.get(`/departments/${structureId}/subdepartments-with-stats`)
       setSubdepartments(subdepartmentsResponse.data)
       
       setError(null)
@@ -178,6 +178,20 @@ const DutySubdepartmentsPage: React.FC = () => {
                                 {subdepartment.description}
                               </div>
                             )}
+                            <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                              <span className="flex items-center">
+                                <span className="w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+                                Нарядов: {subdepartment.duty_types_count}
+                              </span>
+                              <span className="flex items-center">
+                                <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+                                Заступает в сутки: {subdepartment.people_per_day_total}
+                              </span>
+                              <span className="flex items-center">
+                                <span className="w-2 h-2 bg-purple-500 rounded-full mr-1"></span>
+                                Сотрудников: {subdepartment.employees_count}
+                              </span>
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center">

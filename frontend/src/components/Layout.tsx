@@ -4,7 +4,8 @@ import {
   HomeIcon, 
   BuildingOfficeIcon, 
   CalendarIcon,
-  ClipboardDocumentListIcon
+  ClipboardDocumentListIcon,
+  AcademicCapIcon
 } from '@heroicons/react/24/outline'
 
 interface LayoutProps {
@@ -18,6 +19,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Главная', href: '/', icon: HomeIcon },
     { name: 'Структуры', href: '/departments', icon: BuildingOfficeIcon },
     { name: 'Наряды', href: '/duty-structures', icon: ClipboardDocumentListIcon },
+    { name: 'Академические наряды', href: '/academic-duty', icon: AcademicCapIcon },
     { name: 'Распределение нарядов', href: '/duty-distribution', icon: CalendarIcon },
   ]
 

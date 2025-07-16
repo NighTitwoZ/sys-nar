@@ -288,8 +288,12 @@ const DepartmentDetailPage: React.FC = () => {
                               {employee.duty_types.map((dutyType) => (
                                 <span
                                   key={dutyType.id}
-                                  className="inline-flex rounded-full px-2 text-xs font-semibold leading-5 bg-blue-100 text-blue-800"
-                                  title={`Приоритет: ${dutyType.priority}, Человек/сутки: ${dutyType.people_per_day}`}
+                                  className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+                                    dutyType.duty_category === 'academic' 
+                                      ? 'bg-purple-100 text-purple-800' 
+                                      : 'bg-blue-100 text-blue-800'
+                                  }`}
+                                  title={`Вид наряда: ${dutyType.duty_category === 'academic' ? 'Академический' : 'По подразделению'}, Человек/сутки: ${dutyType.people_per_day}`}
                                 >
                                   {dutyType.name}
                                 </span>

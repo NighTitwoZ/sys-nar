@@ -233,7 +233,7 @@ const DutyTypesByDepartmentPage: React.FC = () => {
                         Описание
                       </th>
                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Приоритет
+                        Вид наряда
                       </th>
                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Человек/сутки
@@ -260,8 +260,12 @@ const DutyTypesByDepartmentPage: React.FC = () => {
                             {dutyType.description || '-'}
                           </td>
                           <td className="px-3 py-4 text-sm text-gray-500">
-                            <span className="inline-flex rounded-full px-2 text-xs font-semibold leading-5 bg-blue-100 text-blue-800">
-                              {dutyType.priority}
+                            <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+                              dutyType.duty_category === 'academic' 
+                                ? 'bg-purple-100 text-purple-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {dutyType.duty_category === 'academic' ? 'Академический' : 'По подразделению'}
                             </span>
                           </td>
                           <td className="px-3 py-4 text-sm text-gray-500">

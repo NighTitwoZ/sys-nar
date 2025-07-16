@@ -11,13 +11,13 @@ router = APIRouter()
 class DutyTypeCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    priority: int = 1
+    duty_category: str = "academic"
     people_per_day: int = 1
 
 class DutyTypeCreateForDepartment(BaseModel):
     name: str
     description: Optional[str] = None
-    priority: int = 1
+    duty_category: str = "academic"
     people_per_day: int = 1
     department_id: int
 
@@ -25,7 +25,7 @@ class DutyTypeResponse(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
-    priority: int
+    duty_category: str
     people_per_day: int
     
     class Config:
@@ -35,7 +35,7 @@ class DutyTypeWithDepartmentResponse(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
-    priority: int
+    duty_category: str
     people_per_day: int
     department_name: str
     
@@ -45,7 +45,36 @@ class DutyTypeWithDepartmentResponse(BaseModel):
 @router.get("/", response_model=List[DutyTypeResponse])
 async def get_duty_types(db: AsyncSession = Depends(get_db)):
     """Получить список всех типов нарядов"""
-    result = await db.execute(select(DutyType))
+    result = await db.execute(select(DutyType).order_by(DutyType.name))
+    duty_types = result.scalars().all()
+    return duty_types
+
+@router.get("/department/{department_id}", response_model=List[DutyTypeResponse])
+async def get_duty_types_by_department(department_id: int, db: AsyncSession = Depends(get_db)):
+    """Получить список типов нарядов для конкретного подразделения"""
+    from models.models import Employee, EmployeeDutyType
+    
+    # Получаем уникальные типы нарядов, которые назначены сотрудникам подразделения
+    result = await db.execute(
+        select(DutyType)
+        .join(EmployeeDutyType, DutyType.id == EmployeeDutyType.duty_type_id)
+        .join(Employee, EmployeeDutyType.employee_id == Employee.id)
+        .where(Employee.department_id == department_id)
+        .where(EmployeeDutyType.is_active == True)
+        .distinct()
+        .order_by(DutyType.name)
+    )
+    duty_types = result.scalars().all()
+    return duty_types
+
+@router.get("/unique", response_model=List[DutyTypeResponse])
+async def get_unique_duty_types(db: AsyncSession = Depends(get_db)):
+    """Получить список уникальных типов нарядов (без дублирования)"""
+    result = await db.execute(
+        select(DutyType)
+        .distinct()
+        .order_by(DutyType.name)
+    )
     duty_types = result.scalars().all()
     return duty_types
 
@@ -74,6 +103,7 @@ async def get_duty_types_by_department(department_id: int, db: AsyncSession = De
         .where(EmployeeDutyType.employee_id.in_(employee_ids))
         .where(EmployeeDutyType.is_active == True)
         .distinct()
+        .order_by(DutyType.name)
     )
     duty_types = duty_types_result.scalars().all()
     
@@ -114,7 +144,7 @@ async def create_duty_type_for_department(duty_type: DutyTypeCreateForDepartment
         db_duty_type = DutyType(
             name=duty_type.name,
             description=duty_type.description,
-            priority=duty_type.priority,
+            duty_category=duty_type.duty_category,
             people_per_day=duty_type.people_per_day
         )
         db.add(db_duty_type)
@@ -238,7 +268,7 @@ async def get_all_duty_types_with_departments(db: AsyncSession = Depends(get_db)
             DutyType.id,
             DutyType.name,
             DutyType.description,
-            DutyType.priority,
+            DutyType.duty_category,
             DutyType.people_per_day,
             Employee.department_id
         )
@@ -273,7 +303,7 @@ async def get_all_duty_types_with_departments(db: AsyncSession = Depends(get_db)
             "id": row.id,
             "name": row.name,
             "description": row.description,
-            "priority": row.priority,
+            "duty_category": row.duty_category,
             "people_per_day": row.people_per_day,
             "department_name": dept_name
         })
@@ -283,11 +313,25 @@ async def get_all_duty_types_with_departments(db: AsyncSession = Depends(get_db)
 @router.get("/structure/{structure_id}/all-with-departments", response_model=List[DutyTypeWithDepartmentResponse])
 async def get_duty_types_by_structure_with_departments(structure_id: int, db: AsyncSession = Depends(get_db)):
     """Получить все типы нарядов структуры с информацией о подразделениях"""
-    # Получаем все подразделения структуры
+    from models.models import Department
+    
+    # Получаем все дочерние подразделения структуры
     subdepartments_result = await db.execute(
-        select(Employee).where(Employee.department_id == structure_id)
+        select(Department).where(Department.parent_id == structure_id)
     )
-    structure_employees = subdepartments_result.scalars().all()
+    subdepartments = subdepartments_result.scalars().all()
+    
+    if not subdepartments:
+        return []
+    
+    # Получаем ID всех дочерних подразделений
+    subdepartment_ids = [dept.id for dept in subdepartments]
+    
+    # Получаем всех сотрудников из дочерних подразделений
+    employees_result = await db.execute(
+        select(Employee).where(Employee.department_id.in_(subdepartment_ids))
+    )
+    structure_employees = employees_result.scalars().all()
     
     if not structure_employees:
         return []
@@ -301,7 +345,7 @@ async def get_duty_types_by_structure_with_departments(structure_id: int, db: As
             DutyType.id,
             DutyType.name,
             DutyType.description,
-            DutyType.priority,
+            DutyType.duty_category,
             DutyType.people_per_day,
             Employee.department_id
         )
@@ -310,13 +354,13 @@ async def get_duty_types_by_structure_with_departments(structure_id: int, db: As
         .where(EmployeeDutyType.employee_id.in_(structure_employee_ids))
         .where(EmployeeDutyType.is_active == True)
         .distinct()
+        .order_by(DutyType.name)
     )
     
     duty_types_with_dept = result.all()
     
     # Получаем названия подразделений
     department_ids = list(set([row.department_id for row in duty_types_with_dept]))
-    from models.models import Department
     dept_result = await db.execute(
         select(Department.id, Department.name)
         .where(Department.id.in_(department_ids))
@@ -331,7 +375,67 @@ async def get_duty_types_by_structure_with_departments(structure_id: int, db: As
             "id": row.id,
             "name": row.name,
             "description": row.description,
-            "priority": row.priority,
+            "duty_category": row.duty_category,
+            "people_per_day": row.people_per_day,
+            "department_name": dept_name
+        })
+    
+    return response
+
+@router.get("/structure/{structure_id}/all", response_model=List[DutyTypeWithDepartmentResponse])
+async def get_all_duty_types_by_structure(structure_id: int, db: AsyncSession = Depends(get_db)):
+    """Получить все типы нарядов, которые есть в подразделениях структуры (включая не назначенные сотрудникам)"""
+    from models.models import Department
+    
+    # Получаем все дочерние подразделения структуры
+    subdepartments_result = await db.execute(
+        select(Department).where(Department.parent_id == structure_id)
+    )
+    subdepartments = subdepartments_result.scalars().all()
+    
+    if not subdepartments:
+        return []
+    
+    # Получаем ID всех дочерних подразделений
+    subdepartment_ids = [dept.id for dept in subdepartments]
+    
+    # Получаем все типы нарядов, которые назначены сотрудникам подразделений структуры
+    result = await db.execute(
+        select(
+            DutyType.id,
+            DutyType.name,
+            DutyType.description,
+            DutyType.duty_category,
+            DutyType.people_per_day,
+            Employee.department_id
+        )
+        .join(EmployeeDutyType, DutyType.id == EmployeeDutyType.duty_type_id)
+        .join(Employee, EmployeeDutyType.employee_id == Employee.id)
+        .where(Employee.department_id.in_(subdepartment_ids))
+        .where(EmployeeDutyType.is_active == True)
+        .distinct()
+        .order_by(DutyType.name)
+    )
+    
+    duty_types_with_dept = result.all()
+    
+    # Получаем названия подразделений
+    department_ids = list(set([row.department_id for row in duty_types_with_dept]))
+    dept_result = await db.execute(
+        select(Department.id, Department.name)
+        .where(Department.id.in_(department_ids))
+    )
+    dept_mapping = {dept.id: dept.name for dept in dept_result.all()}
+    
+    # Формируем результат
+    response = []
+    for row in duty_types_with_dept:
+        dept_name = dept_mapping.get(row.department_id, "Неизвестное подразделение")
+        response.append({
+            "id": row.id,
+            "name": row.name,
+            "description": row.description,
+            "duty_category": row.duty_category,
             "people_per_day": row.people_per_day,
             "department_name": dept_name
         })

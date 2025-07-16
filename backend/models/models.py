@@ -51,7 +51,7 @@ class DutyType(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False, unique=True)
     description = Column(Text, nullable=True)
-    priority = Column(Integer, default=1)  # Приоритет типа наряда
+    duty_category = Column(String(50), default="academic")  # Вид наряда: academic/division
     people_per_day = Column(Integer, default=1)  # Количество человек в сутки
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

@@ -48,8 +48,11 @@ const EmployeeDutyTypesModal: React.FC<EmployeeDutyTypesModalProps> = ({
   }, [isOpen, employee])
 
   const fetchDutyTypes = async () => {
+    if (!employee) return
+    
     try {
-      const response = await api.get('/duty-types')
+      // Получаем только типы нарядов, которые есть в подразделении сотрудника
+      const response = await api.get(`/duty-types/department/${employee.department_id}`)
       setDutyTypes(response.data)
     } catch (err) {
       console.error('Error fetching duty types:', err)

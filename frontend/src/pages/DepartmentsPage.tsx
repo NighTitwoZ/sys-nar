@@ -67,11 +67,13 @@ const DepartmentsPage: React.FC = () => {
     try {
       setDeleteLoading(true)
       await api.delete(`/departments/${departmentToDelete.id}`)
+      setError(null) // Очищаем ошибки при успешном удалении
       fetchDepartments()
       setIsDeleteModalOpen(false)
       setDepartmentToDelete(null)
     } catch (err: any) {
       console.error('Error deleting department:', err)
+      setError(err.response?.data?.detail || 'Ошибка при удалении структуры')
     } finally {
       setDeleteLoading(false)
     }

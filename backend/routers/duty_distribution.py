@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from database import get_db
 from models.models import Department, Employee, DutyType, DutyRecord, EmployeeDutyType
 from pydantic import BaseModel
@@ -21,8 +21,10 @@ except ImportError:
 router = APIRouter()
 
 class DutyDistributionRequest(BaseModel):
-    year: int
-    month: int
+    start_date: str
+    end_date: str
+    department_id: Optional[int] = None
+    structure_id: Optional[int] = None
 
 class DutyDistributionResponse(BaseModel):
     department_id: int
@@ -34,17 +36,18 @@ async def generate_duty_distribution(
     request: DutyDistributionRequest, 
     db: AsyncSession = Depends(get_db)
 ):
-    """Генерировать распределение нарядов на месяц с улучшенной логикой"""
+    """Генерировать распределение нарядов на выбранный период для конкретного подразделения"""
     
-    # Получаем количество дней в месяце
-    _, days_in_month = calendar.monthrange(request.year, request.month)
+    # Парсим даты
+    start_date = datetime.strptime(request.start_date, "%Y-%m-%d").date()
+    end_date = datetime.strptime(request.end_date, "%Y-%m-%d").date()
     
     # Получаем все типы нарядов
     duty_types_result = await db.execute(select(DutyType))
     duty_types = duty_types_result.scalars().all()
     
-    # Получаем всех сотрудников с их типами нарядов
-    employees_result = await db.execute(
+    # Формируем запрос для получения сотрудников
+    employee_query = (
         select(Employee, EmployeeDutyType, DutyType)
         .join(EmployeeDutyType, Employee.id == EmployeeDutyType.employee_id)
         .join(DutyType, EmployeeDutyType.duty_type_id == DutyType.id)
@@ -52,6 +55,20 @@ async def generate_duty_distribution(
         .where(EmployeeDutyType.is_active == True)
     )
     
+    # Если указано конкретное подразделение
+    if request.department_id:
+        employee_query = employee_query.where(Employee.department_id == request.department_id)
+    # Если указана структура (но не подразделение)
+    elif request.structure_id:
+        # Получаем все подразделения структуры
+        subdepts_result = await db.execute(
+            select(Department.id).where(Department.parent_id == request.structure_id)
+        )
+        subdept_ids = [row[0] for row in subdepts_result.all()]
+        if subdept_ids:
+            employee_query = employee_query.where(Employee.department_id.in_(subdept_ids))
+    
+    employees_result = await db.execute(employee_query)
     employees_data = employees_result.all()
     
     # Группируем сотрудников по типам нарядов
@@ -64,176 +81,222 @@ async def generate_duty_distribution(
             }
         duty_types_employees[duty_type.id]['employees'].append(emp)
     
-    # Словарь для отслеживания занятости сотрудников по дням
+    # Словарь для отслеживания занятости сотрудников по дням и типам нарядов
+    # Формат: {employee_id: {date_key: {duty_type_id, ...}}}
     employee_busy_dates = {}
     
-    # Словарь для отслеживания количества человек в нарядах по дням
-    duty_slots_by_date = {}
+    # Собираем все наряды
+    all_duties = []
+    
+    # Генерируем наряды по дням, а не по типам
+    current_date = start_date
+    while current_date <= end_date:
+        duty_date = current_date
+        date_key = duty_date.isoformat()
+        
+        # Для каждого типа наряда в этот день
+        for duty_type_id, data in duty_types_employees.items():
+            duty_type = data['duty_type']
+            employees = data['employees']
+            
+            # Для каждого типа наряда должно заступить столько людей, сколько указано в people_per_day
+            people_needed = duty_type.people_per_day
+            
+            # Выбираем сотрудников для наряда
+            selected_employees = await select_employees_for_duty(
+                employees, duty_date, people_needed, employee_busy_dates, duty_type_id, db, start_date, end_date
+            )
+            
+            # Назначаем выбранных сотрудников
+            for selected_employee in selected_employees:
+                if selected_employee.id not in employee_busy_dates:
+                    employee_busy_dates[selected_employee.id] = {}
+                if date_key not in employee_busy_dates[selected_employee.id]:
+                    employee_busy_dates[selected_employee.id][date_key] = set()
+                employee_busy_dates[selected_employee.id][date_key].add(duty_type_id)
+                
+                # Добавляем наряд
+                all_duties.append({
+                    'date': date_key,
+                    'employee_id': selected_employee.id,
+                    'employee_name': f"{selected_employee.last_name} {selected_employee.first_name}",
+                    'duty_type_id': duty_type.id,
+                    'duty_type_name': duty_type.name,
+                    'people_per_day': duty_type.people_per_day
+                })
+        
+        current_date += timedelta(days=1)
+    
+    # Группируем по подразделениям для ответа
+    dept_result = await db.execute(select(Department))
+    departments = dept_result.scalars().all()
     
     distribution = []
-    
-    # Генерируем наряды для каждого типа
-    for duty_type_id, data in duty_types_employees.items():
-        duty_type = data['duty_type']
-        employees = data['employees']
-        duties = []
-        # 1. Собираем competing_departments
-        competing_departments = set(emp.department_id for emp in employees)
-        # 2. Для каждого дня
-        for day in range(1, days_in_month + 1):
-            duty_date = date(request.year, request.month, day)
-            date_key = duty_date.isoformat()
-            if date_key not in duty_slots_by_date:
-                duty_slots_by_date[date_key] = {}
-            current_count = duty_slots_by_date[date_key].get(duty_type_id, 0)
-            slots_left = duty_type.people_per_day - current_count
-            if slots_left <= 0:
-                continue
-            # 3. Считаем department_duty_counts (по памяти + базе)
-            department_duty_counts = {dept_id: 0 for dept_id in competing_departments}
-            for emp in employees:
-                count = 0
-                # В памяти
-                count += sum(1 for d in employee_busy_dates.get(emp.id, set()) if d <= date_key)
-                # В базе
-                count_result = await db.execute(
-                    select(func.count(DutyRecord.id))
-                    .where(DutyRecord.employee_id == emp.id)
-                    .where(DutyRecord.duty_type_id == duty_type.id)
-                    .where(func.extract('year', DutyRecord.duty_date) == duty_date.year)
-                    .where(func.extract('month', DutyRecord.duty_date) == duty_date.month)
-                )
-                count += count_result.scalar() or 0
-                department_duty_counts[emp.department_id] += count
-            # 4. Для каждого подразделения
-            for dept_id in competing_departments:
-                dept_employees = [emp for emp in employees if emp.department_id == dept_id]
-                selected_employees = await select_employees_for_duty_global(
-                    dept_employees, duty_date, slots_left, employee_busy_dates, db,
-                    department_duty_counts, dept_id, competing_departments
-                )
-                for employee in selected_employees:
-                    if employee.id not in employee_busy_dates:
-                        employee_busy_dates[employee.id] = set()
-                    employee_busy_dates[employee.id].add(date_key)
-                    duty_slots_by_date[date_key][duty_type_id] = duty_slots_by_date[date_key].get(duty_type_id, 0) + 1
-                    duties.append({
-                        'date': date_key,
-                        'employee_id': employee.id,
-                        'employee_name': f"{employee.last_name} {employee.first_name}",
-                        'duty_type_id': duty_type.id,
-                        'duty_type_name': duty_type.name,
-                        'people_per_day': duty_type.people_per_day
-                    })
-                    slots_left -= 1
-                    if slots_left <= 0:
-                        break
-                if slots_left <= 0:
-                    break
-        # Группируем по подразделениям для ответа
-        dept_result = await db.execute(select(Department))
-        departments = dept_result.scalars().all()
-        for dept in departments:
-            dept_duties = [d for d in duties if any(
-                emp.id == d['employee_id'] and emp.department_id == dept.id 
-                for emp in employees
-            )]
-            if dept_duties:
-                distribution.append({
-                    'department_id': dept.id,
-                    'department_name': dept.name,
-                    'duties': dept_duties
-                })
+    for dept in departments:
+        dept_duties = [d for d in all_duties if any(
+            emp.id == d['employee_id'] and emp.department_id == dept.id 
+            for emp in employees
+        )]
+        if dept_duties:
+            distribution.append({
+                'department_id': dept.id,
+                'department_name': dept.name,
+                'duties': dept_duties
+            })
     
     # Сохраняем все наряды в базу
-    for dept in distribution:
-        for duty in dept['duties']:
-            db.add(DutyRecord(
-                employee_id=duty['employee_id'],
-                duty_type_id=duty['duty_type_id'],
-                duty_date=date.fromisoformat(duty['date'])
-            ))
+    for duty in all_duties:
+        db.add(DutyRecord(
+            employee_id=duty['employee_id'],
+            duty_type_id=duty['duty_type_id'],
+            duty_date=date.fromisoformat(duty['date'])
+        ))
     await db.commit()
     return distribution
 
-async def select_employees_for_duty_global(
+async def select_employees_for_duty(
     employees: List[Employee],
     duty_date: date,
     people_needed: int,
-    employee_busy_dates: Dict[int, set],
+    employee_busy_dates: Dict[int, Dict[str, set]],
+    duty_type_id: int,
     db: AsyncSession,
-    department_duty_counts: dict = None,  # department_id -> count
-    current_department_id: int = None,    # id подразделения, для которого сейчас выбираем
-    competing_departments: set = None     # id подразделений, у которых есть этот тип наряда
+    start_date: date,
+    end_date: date
 ) -> List[Employee]:
-    """Выбирает сотрудников для наряда с учетом глобальных ограничений, равномерности и баланса между подразделениями"""
+    """Выбирает сотрудников для наряда с учетом количества нарядов за период и ограничения в 3 дня"""
     date_key = duty_date.isoformat()
-    # Получаем количество нарядов каждого сотрудника в этом месяце и дату последнего наряда
+    
+    # Получаем количество нарядов каждого сотрудника за выбранный период
     employee_duty_counts = {}
-    employee_last_duty_dates = {}
+    employee_last_duty_dates_by_type = {}
+    employee_last_duty_dates = {}  # Последний наряд любого типа
+    
     for employee in employees:
-        # Количество нарядов в месяце
+        # Количество нарядов за выбранный период (из базы)
         count_result = await db.execute(
             select(func.count(DutyRecord.id))
             .where(DutyRecord.employee_id == employee.id)
-            .where(func.extract('year', DutyRecord.duty_date) == duty_date.year)
-            .where(func.extract('month', DutyRecord.duty_date) == duty_date.month)
+            .where(DutyRecord.duty_date >= start_date)
+            .where(DutyRecord.duty_date <= end_date)
         )
-        count_in_db = count_result.scalar()
-        count_in_memory = len(employee_busy_dates.get(employee.id, set()))
-        employee_duty_counts[employee.id] = (count_in_db or 0) + count_in_memory
-        # Дата последнего наряда (учитываем employee_busy_dates)
-        all_dates = set()
+        count_in_db = count_result.scalar() or 0
+        
+        # Количество нарядов в памяти (уже назначенных в этой сессии)
+        count_in_memory = 0
+        if employee.id in employee_busy_dates:
+            for date_str in employee_busy_dates[employee.id]:
+                count_in_memory += len(employee_busy_dates[employee.id][date_str])
+        employee_duty_counts[employee.id] = count_in_db + count_in_memory
+        
+        # Дата последнего наряда этого типа
         last_duty_result = await db.execute(
+            select(DutyRecord.duty_date)
+            .where(DutyRecord.employee_id == employee.id)
+            .where(DutyRecord.duty_type_id == duty_type_id)
+            .order_by(DutyRecord.duty_date.desc())
+            .limit(1)
+        )
+        last_duty_date_db = last_duty_result.scalar()
+        
+        # Учитываем наряды в памяти
+        all_dates = set()
+        if last_duty_date_db:
+            all_dates.add(last_duty_date_db)
+        if employee.id in employee_busy_dates:
+            for date_str in employee_busy_dates[employee.id]:
+                if duty_type_id in employee_busy_dates[employee.id][date_str]:
+                    all_dates.add(date.fromisoformat(date_str))
+        
+        last_duty_date = max(all_dates) if all_dates else None
+        employee_last_duty_dates_by_type[(employee.id, duty_type_id)] = last_duty_date
+        
+        # Дата последнего наряда любого типа
+        last_any_duty_result = await db.execute(
             select(DutyRecord.duty_date)
             .where(DutyRecord.employee_id == employee.id)
             .order_by(DutyRecord.duty_date.desc())
             .limit(1)
         )
-        last_duty_date_db = last_duty_result.scalar()
-        if last_duty_date_db:
-            all_dates.add(last_duty_date_db)
-        for d in employee_busy_dates.get(employee.id, set()):
-            all_dates.add(date.fromisoformat(d))
-        last_duty_date = max(all_dates) if all_dates else None
-        employee_last_duty_dates[employee.id] = last_duty_date
+        last_any_duty_date_db = last_any_duty_result.scalar()
+        
+        # Учитываем наряды в памяти для любого типа
+        all_any_dates = set()
+        if last_any_duty_date_db:
+            all_any_dates.add(last_any_duty_date_db)
+        if employee.id in employee_busy_dates:
+            for date_str in employee_busy_dates[employee.id]:
+                all_any_dates.add(date.fromisoformat(date_str))
+        
+        last_any_duty_date = max(all_any_dates) if all_any_dates else None
+        employee_last_duty_dates[employee.id] = last_any_duty_date
+    
     # Фильтруем доступных сотрудников
     available_employees = []
     for employee in employees:
-        if employee.id in employee_busy_dates and date_key in employee_busy_dates[employee.id]:
+        # Проверяем, не занят ли сотрудник в этот тип наряда в эту дату
+        if (employee.id in employee_busy_dates and 
+            date_key in employee_busy_dates[employee.id] and 
+            duty_type_id in employee_busy_dates[employee.id][date_key]):
             continue
-        last_duty_date = employee_last_duty_dates[employee.id]
-        if last_duty_date is not None:
-            days_since_last = (duty_date - last_duty_date).days
-            if days_since_last < 3:
+        
+        # Проверяем ограничение в 3 дня между любыми нарядами
+        last_any_duty_date = employee_last_duty_dates[employee.id]
+        if last_any_duty_date is not None:
+            days_since_last_any = (duty_date - last_any_duty_date).days
+            if days_since_last_any < 3:  # Не меньше 3 дней между любыми нарядами
                 continue
+        
         available_employees.append(employee)
+    
     if not available_employees:
         return []
-    # --- Новый блок: баланс между подразделениями ---
-    if department_duty_counts and current_department_id and competing_departments and len(competing_departments) > 1:
-        # Приоритет подразделениям с меньшим количеством нарядов по этому типу
-        dept_count = department_duty_counts.get(current_department_id, 0)
-        min_dept_count = min(department_duty_counts[dept_id] for dept_id in competing_departments)
-        if dept_count > min_dept_count:
-            # Если у текущего подразделения больше нарядов, чем у других, не выбираем сотрудников из него
-            return []
-    # --- Конец блока ---
-    available_employees.sort(key=lambda emp: (employee_duty_counts[emp.id], employee_last_duty_dates[emp.id] or date.min))
-    if available_employees:
-        min_count = employee_duty_counts[available_employees[0].id]
-        min_employees = [emp for emp in available_employees if employee_duty_counts[emp.id] == min_count]
-        min_employees.sort(key=lambda emp: employee_last_duty_dates[emp.id] or date.min)
-        selected_employees = min_employees[:people_needed]
-        return selected_employees
-    return []
+    
+    # Сортируем по количеству нарядов (приоритет тем, у кого меньше нарядов)
+    available_employees.sort(key=lambda emp: employee_duty_counts[emp.id])
+    
+    # Выбираем сотрудников с наименьшим количеством нарядов
+    selected_employees = []
+    current_count = employee_duty_counts[available_employees[0].id]
+    
+    # Сначала берем всех сотрудников с минимальным количеством нарядов
+    candidates = [emp for emp in available_employees if employee_duty_counts[emp.id] == current_count]
+    
+    # Если кандидатов больше, чем нужно, выбираем тех, кто давно не был в этом типе наряда
+    if len(candidates) > people_needed:
+        candidates.sort(key=lambda emp: employee_last_duty_dates_by_type[(emp.id, duty_type_id)] or date.min)
+    
+    selected_employees = candidates[:people_needed]
+    
+    # Если нужно больше сотрудников, берем следующих по количеству нарядов
+    if len(selected_employees) < people_needed:
+        remaining_needed = people_needed - len(selected_employees)
+        
+        # Берем следующих по количеству нарядов
+        next_candidates = [emp for emp in available_employees if employee_duty_counts[emp.id] > current_count]
+        next_candidates.sort(key=lambda emp: employee_duty_counts[emp.id])
+        
+        # Добавляем сотрудников с следующим количеством нарядов
+        for next_count in sorted(set(employee_duty_counts[emp.id] for emp in next_candidates)):
+            if len(selected_employees) >= people_needed:
+                break
+            
+            same_count_candidates = [emp for emp in next_candidates if employee_duty_counts[emp.id] == next_count]
+            same_count_candidates.sort(key=lambda emp: employee_last_duty_dates_by_type[(emp.id, duty_type_id)] or date.min)
+            
+            needed_from_this_count = min(remaining_needed - len(selected_employees), len(same_count_candidates))
+            selected_employees.extend(same_count_candidates[:needed_from_this_count])
+    
+    return selected_employees
 
 @router.get("/department/{department_id}")
 async def get_duty_distribution_by_department(
     department_id: int,
+    start_date: str = Query(None, description="Начальная дата (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="Конечная дата (YYYY-MM-DD)"),
     db: AsyncSession = Depends(get_db)
 ):
-    """Получить распределение нарядов для конкретного подразделения"""
+    """Получить распределение нарядов для конкретного подразделения за выбранный период"""
     
     # Получаем подразделение
     dept_result = await db.execute(select(Department).where(Department.id == department_id))
@@ -242,15 +305,23 @@ async def get_duty_distribution_by_department(
     if not department:
         raise HTTPException(status_code=404, detail="Подразделение не найдено")
     
-    # Получаем все записи нарядов для сотрудников подразделения
-    duty_records_result = await db.execute(
+    # Формируем запрос для получения нарядов
+    query = (
         select(DutyRecord, Employee, DutyType)
         .join(Employee, DutyRecord.employee_id == Employee.id)
         .join(DutyType, DutyRecord.duty_type_id == DutyType.id)
         .where(Employee.department_id == department_id)
-        .order_by(DutyRecord.duty_date, Employee.last_name, Employee.first_name)
     )
     
+    # Если указаны даты, фильтруем по периоду
+    if start_date and end_date:
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+        query = query.where(DutyRecord.duty_date >= start_dt).where(DutyRecord.duty_date <= end_dt)
+    
+    query = query.order_by(DutyRecord.duty_date, Employee.last_name, Employee.first_name)
+    
+    duty_records_result = await db.execute(query)
     duty_records = duty_records_result.all()
     
     # Формируем ответ
@@ -321,24 +392,45 @@ async def get_all_duties(
 
 @router.delete("/clear")
 async def clear_duty_records(
-    year: int = Query(..., description="Год"),
-    month: int = Query(..., description="Месяц"),
+    request: DutyDistributionRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Удалить все наряды за указанный месяц и год"""
+    """Удалить наряды за указанный период для конкретного подразделения"""
     from models.models import DutyRecord
-    from sqlalchemy import extract
-    result = await db.execute(
-        select(DutyRecord).where(
-            extract('year', DutyRecord.duty_date) == year,
-            extract('month', DutyRecord.duty_date) == month
-        )
+    
+    # Парсим даты
+    start_date = datetime.strptime(request.start_date, "%Y-%m-%d").date()
+    end_date = datetime.strptime(request.end_date, "%Y-%m-%d").date()
+    
+    # Формируем запрос для удаления нарядов
+    delete_query = (
+        select(DutyRecord)
+        .join(Employee, DutyRecord.employee_id == Employee.id)
+        .where(DutyRecord.duty_date >= start_date)
+        .where(DutyRecord.duty_date <= end_date)
     )
+    
+    # Если указано конкретное подразделение
+    if request.department_id:
+        delete_query = delete_query.where(Employee.department_id == request.department_id)
+    # Если указана структура (но не подразделение)
+    elif request.structure_id:
+        # Получаем все подразделения структуры
+        subdepts_result = await db.execute(
+            select(Department.id).where(Department.parent_id == request.structure_id)
+        )
+        subdept_ids = [row[0] for row in subdepts_result.all()]
+        if subdept_ids:
+            delete_query = delete_query.where(Employee.department_id.in_(subdept_ids))
+    
+    result = await db.execute(delete_query)
     records = result.scalars().all()
+    
     for record in records:
         await db.delete(record)
     await db.commit()
-    return {"message": f"Удалено {len(records)} нарядов за {month:02d}.{year}"} 
+    
+    return {"message": f"Удалено {len(records)} нарядов за период {start_date} - {end_date}"} 
 
 @router.get("/export")
 async def export_duties_to_excel(

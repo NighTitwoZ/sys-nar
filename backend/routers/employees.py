@@ -31,7 +31,7 @@ class EmployeeResponse(BaseModel):
 @router.get("/", response_model=List[EmployeeResponse])
 async def get_employees(db: AsyncSession = Depends(get_db)):
     """Получить список всех сотрудников"""
-    result = await db.execute(select(Employee))
+    result = await db.execute(select(Employee).order_by(Employee.last_name, Employee.first_name))
     employees = result.scalars().all()
     return employees
 
@@ -42,6 +42,7 @@ async def get_employees_by_department(department_id: int, db: AsyncSession = Dep
         select(Employee)
         .where(Employee.department_id == department_id)
         .options(selectinload(Employee.employee_duty_types).selectinload(EmployeeDutyType.duty_type))
+        .order_by(Employee.last_name, Employee.first_name)
     )
     employees = result.scalars().all()
     
@@ -65,7 +66,7 @@ async def get_employees_by_department(department_id: int, db: AsyncSession = Dep
                 employee_data['duty_types'].append({
                     'id': emp_duty_type.duty_type.id,
                     'name': emp_duty_type.duty_type.name,
-                    'priority': emp_duty_type.duty_type.priority,
+                    'duty_category': emp_duty_type.duty_type.duty_category,
                     'people_per_day': emp_duty_type.duty_type.people_per_day
                 })
         

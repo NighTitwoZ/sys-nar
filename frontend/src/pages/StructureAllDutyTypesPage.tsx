@@ -7,9 +7,8 @@ interface DutyTypeWithDepartment {
   id: number
   name: string
   description: string | null
-  priority: number
-  people_per_day: number
   duty_category: string
+  people_per_day: number
   department_name: string
 }
 
@@ -42,7 +41,7 @@ const StructureAllDutyTypesPage: React.FC = () => {
       setStructure(structureResponse.data)
       
       // Получаем все типы нарядов структуры
-      const dutyTypesResponse = await api.get(`/duty-types/structure/${structureId}/all-with-departments`)
+      const dutyTypesResponse = await api.get(`/duty-types/structure/${structureId}/all`)
       setDutyTypes(dutyTypesResponse.data)
       
       setError(null)
@@ -154,13 +153,10 @@ const StructureAllDutyTypesPage: React.FC = () => {
                         Название наряда - Подразделение
                       </th>
                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Категория
-                      </th>
-                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Описание
                       </th>
                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Приоритет
+                        Вид наряда
                       </th>
                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Человек/сутки
@@ -170,7 +166,7 @@ const StructureAllDutyTypesPage: React.FC = () => {
                   <tbody className="divide-y divide-gray-200 bg-white">
                     {dutyTypes.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                        <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
                           В этой структуре нет типов нарядов
                         </td>
                       </tr>
@@ -184,20 +180,15 @@ const StructureAllDutyTypesPage: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-3 py-4 text-sm text-gray-500">
-                            <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                              dutyType.duty_category === 'internal' 
-                                ? 'bg-blue-100 text-blue-800' 
-                                : 'bg-purple-100 text-purple-800'
-                            }`}>
-                              {dutyType.duty_category === 'internal' ? 'Внутри подразделения' : 'Академический'}
-                            </span>
-                          </td>
-                          <td className="px-3 py-4 text-sm text-gray-500">
                             {dutyType.description || '-'}
                           </td>
                           <td className="px-3 py-4 text-sm text-gray-500">
-                            <span className="inline-flex rounded-full px-2 text-xs font-semibold leading-5 bg-blue-100 text-blue-800">
-                              {dutyType.priority}
+                            <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+                              dutyType.duty_category === 'academic' 
+                                ? 'bg-purple-100 text-purple-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {dutyType.duty_category === 'academic' ? 'Академический' : 'По подразделению'}
                             </span>
                           </td>
                           <td className="px-3 py-4 text-sm text-gray-500">

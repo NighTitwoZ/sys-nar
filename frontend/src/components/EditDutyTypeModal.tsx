@@ -140,25 +140,25 @@ const EditDutyTypeModal: React.FC<EditDutyTypeModalProps> = ({
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="internal">Наряд внутри подразделения</option>
-              <option value="academic">Наряд академический</option>
+              <option value="academic">Академический</option>
+              <option value="division">По подразделению</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Приоритет *
+              Вид наряда *
             </label>
-            <input
-              type="number"
-              name="priority"
-              value={formData.priority}
+            <select
+              name="duty_category"
+              value={formData.duty_category}
               onChange={handleChange}
-              min="1"
-              max="10"
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            >
+              <option value="academic">Академический</option>
+              <option value="division">По подразделению</option>
+            </select>
           </div>
 
           <div>

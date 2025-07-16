@@ -57,7 +57,7 @@ const AddDutyTypeModal: React.FC<AddDutyTypeModalProps> = ({
       setName('')
       setDescription('')
       setPeoplePerDay(1)
-      setDutyCategory('internal')
+      setDutyCategory('academic')
       
       // Закрытие модального окна и обновление списка
       onSuccess()
@@ -74,7 +74,7 @@ const AddDutyTypeModal: React.FC<AddDutyTypeModalProps> = ({
       setName('')
       setDescription('')
       setPeoplePerDay(1)
-      setDutyCategory('internal')
+      setDutyCategory('academic')
       setError(null)
       onClose()
     }
@@ -147,8 +147,8 @@ const AddDutyTypeModal: React.FC<AddDutyTypeModalProps> = ({
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   disabled={loading}
                 >
-                  <option value="internal">Наряд внутри подразделения</option>
-                  <option value="academic">Наряд академический</option>
+                  <option value="academic">Академический</option>
+                  <option value="division">По подразделению</option>
                 </select>
                 <p className="mt-1 text-sm text-gray-500">
                   Выберите категорию наряда

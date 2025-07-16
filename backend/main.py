@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from database import engine, Base
-from routers import departments, employees, duty_types, duty_distribution, employee_duty_types
+from routers import departments, employees, duty_types, duty_distribution, employee_duty_types, academic_duty
 import redis.asyncio as redis
 import asyncio
 import logging
@@ -80,6 +80,7 @@ app.include_router(employees.router, prefix="/api/employees", tags=["Сотру�
 app.include_router(duty_types.router, prefix="/api/duty-types", tags=["Типы нарядов"])
 app.include_router(duty_distribution.router, prefix="/api/duty-distribution", tags=["Распределение нарядов"])
 app.include_router(employee_duty_types.router, prefix="/api/employee-duty-types", tags=["Связи сотрудников с типами нарядов"])
+app.include_router(academic_duty.router, prefix="/api/academic-duty", tags=["Академические наряды"])
 
 @app.get("/")
 async def root():
