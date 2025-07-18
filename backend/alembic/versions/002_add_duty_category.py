@@ -19,16 +19,31 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Добавляем колонку duty_category в таблицу duty_types
+    # Добавляем колонку duty_category, если её нет
+    with op.get_context().autocommit_block():
+        conn = op.get_bind()
+        result = conn.execute(sa.text("""
+            SELECT column_name FROM information_schema.columns WHERE table_name='duty_types' AND column_name='duty_category'
+        """))
+        if not result.fetchone():
     op.add_column('duty_types', sa.Column('duty_category', sa.String(50), nullable=True, server_default='academic'))
-    
-    # Удаляем старую колонку priority
-    op.drop_column('duty_types', 'priority')
-
+        result = conn.execute(sa.text("""
+            SELECT column_name FROM information_schema.columns WHERE table_name='duty_types' AND column_name='priority'
+        """))
+        if not result.fetchone():
+            op.add_column('duty_types', sa.Column('priority', sa.Integer(), nullable=True, server_default='1'))
 
 def downgrade() -> None:
-    # Восстанавливаем колонку priority
-    op.add_column('duty_types', sa.Column('priority', sa.Integer(), nullable=True, server_default='1'))
-    
-    # Удаляем колонку duty_category
+    # Откат: удаляем только duty_category и priority, если они есть
+    with op.get_context().autocommit_block():
+        conn = op.get_bind()
+        result = conn.execute(sa.text("""
+            SELECT column_name FROM information_schema.columns WHERE table_name='duty_types' AND column_name='duty_category'
+        """))
+        if result.fetchone():
     op.drop_column('duty_types', 'duty_category') 
+        result = conn.execute(sa.text("""
+            SELECT column_name FROM information_schema.columns WHERE table_name='duty_types' AND column_name='priority'
+        """))
+        if result.fetchone():
+            op.drop_column('duty_types', 'priority') 

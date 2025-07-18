@@ -11,8 +11,9 @@ router = APIRouter()
 class DutyTypeCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    duty_category: str = "academic"
-    people_per_day: int = 1
+    duty_category: Optional[str] = "academic"
+    people_per_day: Optional[int] = 1
+    priority: Optional[int] = 1
 
 class DutyTypeCreateForDepartment(BaseModel):
     name: str
@@ -27,6 +28,7 @@ class DutyTypeResponse(BaseModel):
     description: Optional[str] = None
     duty_category: str
     people_per_day: int
+    priority: int
     
     class Config:
         from_attributes = True
@@ -111,8 +113,13 @@ async def get_duty_types_by_department(department_id: int, db: AsyncSession = De
 
 @router.post("/", response_model=DutyTypeResponse)
 async def create_duty_type(duty_type: DutyTypeCreate, db: AsyncSession = Depends(get_db)):
-    """Создать новый тип наряда"""
-    db_duty_type = DutyType(**duty_type.model_dump())
+    db_duty_type = DutyType(
+        name=duty_type.name,
+        description=duty_type.description,
+        duty_category=duty_type.duty_category,
+        people_per_day=duty_type.people_per_day,
+        priority=duty_type.priority
+    )
     db.add(db_duty_type)
     await db.commit()
     await db.refresh(db_duty_type)
@@ -218,7 +225,7 @@ async def delete_duty_type(duty_type_id: int, db: AsyncSession = Depends(get_db)
     # Удаляем сам тип наряда
     await db.delete(duty_type)
     await db.commit()
-    return {"message": "Тип наряда удален"}
+    return {"message": "Тип наряда удален"} 
 
 @router.delete("/{duty_type_id}/department/{department_id}")
 async def remove_duty_type_from_department(duty_type_id: int, department_id: int, db: AsyncSession = Depends(get_db)):

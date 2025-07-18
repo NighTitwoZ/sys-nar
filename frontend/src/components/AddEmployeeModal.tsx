@@ -88,9 +88,9 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({
           {/* Заголовок */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-medium text-gray-900">
-                Добавить сотрудника
-              </h3>
+            <h3 className="text-lg font-medium text-gray-900">
+              Добавить сотрудника
+            </h3>
               {departmentId && (
                 <p className="text-sm text-gray-600 mt-1">
                   Сотрудник будет добавлен в текущее подразделение

@@ -30,6 +30,7 @@ class Employee(Base):
     position = Column(String(255), nullable=False)
     department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
     is_active = Column(Boolean, default=True)
+    status = Column(String(10), nullable=False, default="НЛ")  # НЛ, Б, К, НВ, НГ, О
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -53,6 +54,7 @@ class DutyType(Base):
     description = Column(Text, nullable=True)
     duty_category = Column(String(50), default="academic")  # Вид наряда: academic/division
     people_per_day = Column(Integer, default=1)  # Количество человек в сутки
+    priority = Column(Integer, default=1)  # Приоритет наряда  # MIGRATION
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     

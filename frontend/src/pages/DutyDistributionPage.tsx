@@ -353,8 +353,18 @@ const DutyDistributionPage: React.FC = () => {
       const month = String(d.getMonth() + 1).padStart(2, '0');
       return `${day}-${month}`;
     };
-    // Строим мапу: сотрудник -> дата -> тип наряда
-    const dutyMap: Record<string, Record<string, string>> = {};
+    
+    // Функция определения цвета на основе категории наряда
+    const getDutyColor = (dutyTypeName: string) => {
+      // Определяем категорию по названию наряда
+      const isAcademic = dutyTypeName.toLowerCase().includes('академический');
+      return isAcademic 
+        ? 'bg-purple-100 text-purple-800' 
+        : 'bg-blue-100 text-blue-800';
+    };
+    
+    // Строим мапу: сотрудник -> дата -> наряд (полная информация)
+    const dutyMap: Record<string, Record<string, any>> = {};
     // Считаем количество нарядов для каждого сотрудника
     const employeeDutyCounts: Record<string, number> = {};
     
@@ -364,7 +374,7 @@ const DutyDistributionPage: React.FC = () => {
     }
     
     for (const duty of departmentDuties) {
-      dutyMap[duty.employee_name][duty.date] = duty.duty_type_name;
+      dutyMap[duty.employee_name][duty.date] = duty;
       employeeDutyCounts[duty.employee_name]++;
     }
     
@@ -387,8 +397,8 @@ const DutyDistributionPage: React.FC = () => {
                 {dates.map(date => (
                   <td key={date} className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                     {dutyMap[emp][date] ? (
-                      <span className="inline-flex rounded-full px-2 text-xs font-semibold leading-5 bg-blue-100 text-blue-800">
-                        {dutyMap[emp][date]}
+                      <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${getDutyColor(dutyMap[emp][date].duty_type_name)}`}>
+                        {dutyMap[emp][date].duty_type_name}
                       </span>
                     ) : ''}
                   </td>
@@ -449,13 +459,13 @@ const DutyDistributionPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="sm:flex sm:items-center mb-6">
-          <div className="sm:flex-auto">
+        <div className="sm:flex-auto">
             <h1 className="text-2xl font-semibold text-gray-900">Распределение нарядов</h1>
-            <p className="mt-2 text-sm text-gray-700">
+          <p className="mt-2 text-sm text-gray-700">
               Сгенерируйте наряды на выбранный месяц и выберите подразделение или тип наряда для просмотра деталей
-            </p>
-          </div>
+          </p>
         </div>
+      </div>
         <div className="flex flex-wrap items-center gap-4 mb-6">
           {/* Календарь */}
           <div className="w-64">
@@ -497,13 +507,13 @@ const DutyDistributionPage: React.FC = () => {
             </select>
           </div>
           {/* Кнопка генерации */}
-          <button
+            <button
             onClick={handleGenerate}
             disabled={loading || !dateRange.startDate || !dateRange.endDate || !selectedStructureId || (selectedStructureId !== 'all' && !selectedSubdepartmentId)}
             className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
-          >
+            >
             {loading ? 'Генерация...' : 'Сгенерировать наряды'}
-          </button>
+            </button>
 
         </div>
         {/* Вкладки */}
@@ -526,8 +536,8 @@ const DutyDistributionPage: React.FC = () => {
           <>
             {error && (
               <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>
-            )}
-            {distribution.length > 0 && (
+      )}
+      {distribution.length > 0 && (
               <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {distribution.map(dept => (
                   <div
@@ -564,7 +574,7 @@ const DutyDistributionPage: React.FC = () => {
                   <div className="flex justify-between items-center p-6 border-b">
                     <h2 className="text-xl font-semibold text-gray-900">
                       Наряды подразделения: {selectedDepartment?.department_name}
-                    </h2>
+              </h2>
                     <div className="flex items-center space-x-4">
                       <button
                         onClick={handleDownloadExcel}
@@ -578,16 +588,16 @@ const DutyDistributionPage: React.FC = () => {
                       >
                         Удалить
                       </button>
-                      <button
+              <button
                         onClick={() => setShowModal(false)}
                         className="text-gray-400 hover:text-gray-600"
-                      >
+              >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
-                      </button>
-                    </div>
-                  </div>
+              </button>
+            </div>
+          </div>
                   {renderDutyTable()}
                 </div>
               </div>
@@ -620,17 +630,17 @@ const DutyDistributionPage: React.FC = () => {
                       <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-indigo-100 text-indigo-700 font-bold">
                         {dt.people_per_day}
                       </span>
-                    </div>
-                  </div>
-                ))}
+                </div>
               </div>
+            ))}
+          </div>
             )}
             {selectedDutyType && (
               <div className="mt-4">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">{selectedDutyType.name}</h2>
                 {renderDutyTypeTable()}
-              </div>
-            )}
+        </div>
+      )}
           </div>
         )}
       </div>

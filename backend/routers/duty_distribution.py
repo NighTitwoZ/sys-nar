@@ -48,13 +48,13 @@ async def generate_duty_distribution(
     
     # Формируем запрос для получения сотрудников
     employee_query = (
-        select(Employee, EmployeeDutyType, DutyType)
-        .join(EmployeeDutyType, Employee.id == EmployeeDutyType.employee_id)
-        .join(DutyType, EmployeeDutyType.duty_type_id == DutyType.id)
-        .where(Employee.is_active == True)
-        .where(EmployeeDutyType.is_active == True)
-    )
-    
+            select(Employee, EmployeeDutyType, DutyType)
+            .join(EmployeeDutyType, Employee.id == EmployeeDutyType.employee_id)
+            .join(DutyType, EmployeeDutyType.duty_type_id == DutyType.id)
+            .where(Employee.is_active == True)
+            .where(EmployeeDutyType.is_active == True)
+        )
+        
     # Если указано конкретное подразделение
     if request.department_id:
         employee_query = employee_query.where(Employee.department_id == request.department_id)
@@ -70,7 +70,7 @@ async def generate_duty_distribution(
     
     employees_result = await db.execute(employee_query)
     employees_data = employees_result.all()
-    
+
     # Группируем сотрудников по типам нарядов
     duty_types_employees = {}
     for emp, emp_duty, duty_type in employees_data:
@@ -80,7 +80,7 @@ async def generate_duty_distribution(
                 'employees': []
             }
         duty_types_employees[duty_type.id]['employees'].append(emp)
-    
+        
     # Словарь для отслеживания занятости сотрудников по дням и типам нарядов
     # Формат: {employee_id: {date_key: {duty_type_id, ...}}}
     employee_busy_dates = {}
@@ -118,9 +118,9 @@ async def generate_duty_distribution(
                 # Добавляем наряд
                 all_duties.append({
                     'date': date_key,
-                    'employee_id': selected_employee.id,
-                    'employee_name': f"{selected_employee.last_name} {selected_employee.first_name}",
-                    'duty_type_id': duty_type.id,
+                        'employee_id': selected_employee.id,
+                        'employee_name': f"{selected_employee.last_name} {selected_employee.first_name}",
+                        'duty_type_id': duty_type.id,
                     'duty_type_name': duty_type.name,
                     'people_per_day': duty_type.people_per_day
                 })
@@ -135,7 +135,7 @@ async def generate_duty_distribution(
     for dept in departments:
         dept_duties = [d for d in all_duties if any(
             emp.id == d['employee_id'] and emp.department_id == dept.id 
-            for emp in employees
+            for emp in employees_data
         )]
         if dept_duties:
             distribution.append({

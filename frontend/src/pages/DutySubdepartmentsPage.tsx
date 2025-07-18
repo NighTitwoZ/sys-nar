@@ -118,17 +118,6 @@ const DutySubdepartmentsPage: React.FC = () => {
           </ol>
         </nav>
 
-        {/* Кнопка назад */}
-        <div className="mt-4">
-          <button
-            onClick={handleBackClick}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Назад к структурам
-          </button>
-        </div>
-
         {/* Ошибка */}
         {error && (
           <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-4">

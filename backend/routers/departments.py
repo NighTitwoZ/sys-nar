@@ -51,6 +51,7 @@ async def get_departments_with_stats(db: AsyncSession = Depends(get_db)):
         
         # Подсчитываем количество сотрудников в структуре
         employees_count = 0
+        status_stats = {}
         if subdepartment_ids:
             emp_result = await db.execute(
                 select(func.count(Employee.id))
@@ -58,6 +59,15 @@ async def get_departments_with_stats(db: AsyncSession = Depends(get_db)):
                 .where(Employee.is_active == True)
             )
             employees_count = emp_result.scalar() or 0
+            
+            # Подсчитываем статистику по статусам для всей структуры
+            status_result = await db.execute(
+                select(Employee.status, func.count(Employee.id))
+                .where(Employee.department_id.in_(subdepartment_ids))
+                .where(Employee.is_active == True)
+                .group_by(Employee.status)
+            )
+            status_stats = dict(status_result.all())
         
         # Подсчитываем количество типов нарядов в структуре
         duty_types_count = 0
@@ -83,6 +93,7 @@ async def get_departments_with_stats(db: AsyncSession = Depends(get_db)):
             "created_at": structure.created_at,
             "updated_at": structure.updated_at,
             "employees_count": employees_count,
+            "employee_statuses": status_stats,
             "duty_types_count": duty_types_count,
             "people_per_day_total": people_per_day_total
         })
@@ -127,6 +138,15 @@ async def get_subdepartments_with_stats(department_id: int, db: AsyncSession = D
         )
         employees_count = emp_result.scalar() or 0
         
+        # Подсчитываем статистику по статусам
+        status_result = await db.execute(
+            select(Employee.status, func.count(Employee.id))
+            .where(Employee.department_id == subdept.id)
+            .where(Employee.is_active == True)
+            .group_by(Employee.status)
+        )
+        status_stats = dict(status_result.all())
+        
         # Подсчитываем количество типов нарядов в подразделении
         duty_types_result = await db.execute(
             select(DutyType.id, DutyType.people_per_day)
@@ -147,6 +167,7 @@ async def get_subdepartments_with_stats(department_id: int, db: AsyncSession = D
             "created_at": subdept.created_at,
             "updated_at": subdept.updated_at,
             "employees_count": employees_count,
+            "employee_statuses": status_stats,
             "duty_types_count": duty_types_count,
             "people_per_day_total": people_per_day_total
         })

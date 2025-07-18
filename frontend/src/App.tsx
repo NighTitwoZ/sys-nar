@@ -13,6 +13,9 @@ import DutyTypesByDepartmentPage from './pages/DutyTypesByDepartmentPage'
 import SubdepartmentsPage from './pages/SubdepartmentsPage'
 import AllDutyTypesPage from './pages/AllDutyTypesPage'
 import StructureAllDutyTypesPage from './pages/StructureAllDutyTypesPage'
+import PersonnelExpensePage from './pages/PersonnelExpensePage'
+import PersonnelExpenseSubdepartmentsPage from './pages/PersonnelExpenseSubdepartmentsPage'
+import PersonnelExpenseEmployeesPage from './pages/PersonnelExpenseEmployeesPage'
 
 function App() {
   return (
@@ -30,6 +33,9 @@ function App() {
         <Route path="/duty-structures/:structureId/all" element={<StructureAllDutyTypesPage />} />
         <Route path="/duty-structures/:structureId/subdepartments" element={<DutySubdepartmentsPage />} />
         <Route path="/duty-structures/:structureId/subdepartments/:subdepartmentId/duty-types" element={<DutyTypesByDepartmentPage />} />
+        <Route path="/personnel-expense" element={<PersonnelExpensePage />} />
+        <Route path="/personnel-expense/:structureId/subdepartments" element={<PersonnelExpenseSubdepartmentsPage />} />
+        <Route path="/personnel-expense/:structureId/subdepartments/:departmentId/employees" element={<PersonnelExpenseEmployeesPage />} />
       </Routes>
     </Layout>
   )

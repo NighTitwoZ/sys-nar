@@ -14,6 +14,7 @@ interface Employee {
   middle_name: string | null
   position: string
   is_active: boolean
+  status: string
   duty_types?: Array<{
     id: number
     name: string
@@ -124,6 +125,18 @@ const DepartmentDetailPage: React.FC = () => {
     setEmployeeForDutyTypes(null)
   }
 
+  const getStatusColor = (status: string) => {
+    const statusColors: { [key: string]: string } = {
+      'НЛ': 'bg-green-100 text-green-800',
+      'Б': 'bg-red-100 text-red-800',
+      'К': 'bg-blue-100 text-blue-800',
+      'НВ': 'bg-purple-100 text-purple-800',
+      'НГ': 'bg-orange-100 text-orange-800',
+      'О': 'bg-yellow-100 text-yellow-800'
+    }
+    return statusColors[status] || 'bg-gray-100 text-gray-800'
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -184,13 +197,6 @@ const DepartmentDetailPage: React.FC = () => {
 
         {/* Кнопки навигации */}
         <div className="mb-4 flex gap-4">
-          <button
-            onClick={() => window.location.href = '/departments'}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Назад к структурам
-          </button>
           <button
             onClick={() => window.location.href = `/departments/${structureId}/subdepartments`}
             className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -274,12 +280,8 @@ const DepartmentDetailPage: React.FC = () => {
                           {employee.position}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                            employee.is_active
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {employee.is_active ? 'Активен' : 'Неактивен'}
+                          <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${getStatusColor(employee.status)}`}>
+                            {employee.status}
                           </span>
                         </td>
                         <td className="px-3 py-4 text-sm text-gray-500">

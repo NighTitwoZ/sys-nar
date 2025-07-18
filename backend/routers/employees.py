@@ -15,6 +15,7 @@ class EmployeeCreate(BaseModel):
     middle_name: Optional[str] = None
     position: str
     department_id: int
+    status: str = "НЛ"
 
 class EmployeeResponse(BaseModel):
     id: int
@@ -24,6 +25,7 @@ class EmployeeResponse(BaseModel):
     position: str
     department_id: int
     is_active: bool
+    status: str
     
     class Config:
         from_attributes = True
@@ -57,6 +59,7 @@ async def get_employees_by_department(department_id: int, db: AsyncSession = Dep
             'position': employee.position,
             'department_id': employee.department_id,
             'is_active': employee.is_active,
+            'status': employee.status,
             'duty_types': []
         }
         
@@ -73,6 +76,32 @@ async def get_employees_by_department(department_id: int, db: AsyncSession = Dep
         employees_with_duty_types.append(employee_data)
     
     return employees_with_duty_types
+
+@router.get("/department/{department_id}/with-status")
+async def get_employees_by_department_with_status(department_id: int, db: AsyncSession = Depends(get_db)):
+    """Получить сотрудников подразделения только с их статусами для системы нарядов"""
+    result = await db.execute(
+        select(Employee)
+        .where(Employee.department_id == department_id)
+        .where(Employee.is_active == True)
+        .order_by(Employee.last_name, Employee.first_name)
+    )
+    employees = result.scalars().all()
+    
+    # Формируем упрощенный ответ только со статусами
+    employees_with_status = []
+    for employee in employees:
+        employee_data = {
+            'id': employee.id,
+            'first_name': employee.first_name,
+            'last_name': employee.last_name,
+            'middle_name': employee.middle_name,
+            'position': employee.position,
+            'status': employee.status
+        }
+        employees_with_status.append(employee_data)
+    
+    return employees_with_status
 
 @router.post("/", response_model=EmployeeResponse)
 async def create_employee(employee: EmployeeCreate, db: AsyncSession = Depends(get_db)):
@@ -136,6 +165,28 @@ async def delete_employee(employee_id: int, db: AsyncSession = Depends(get_db)):
     await db.delete(employee)
     await db.commit()
     return {"message": "Сотрудник удален"}
+
+@router.patch("/{employee_id}/status")
+async def update_employee_status(employee_id: int, status_data: dict, db: AsyncSession = Depends(get_db)):
+    """Обновить статус сотрудника"""
+    result = await db.execute(select(Employee).where(Employee.id == employee_id))
+    employee = result.scalar_one_or_none()
+    
+    if not employee:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+    
+    # Проверяем, что статус является допустимым
+    valid_statuses = ["НЛ", "Б", "К", "НВ", "НГ", "О"]
+    new_status = status_data.get("status")
+    
+    if new_status not in valid_statuses:
+        raise HTTPException(status_code=400, detail="Недопустимый статус")
+    
+    employee.status = new_status
+    await db.commit()
+    await db.refresh(employee)
+    
+    return {"message": "Статус обновлен", "status": employee.status}
 
 @router.get("/{employee_id}/duty-types")
 async def get_employee_duty_types(employee_id: int, db: AsyncSession = Depends(get_db)):

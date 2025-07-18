@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ChevronRightIcon, ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline'
+import { ChevronRightIcon, ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon, UserIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 import { useNavigate, useParams } from 'react-router-dom'
 import AddDutyTypeModal from '../components/AddDutyTypeModal'
@@ -20,10 +20,20 @@ interface Department {
   description: string | null
 }
 
+interface Employee {
+  id: number
+  first_name: string
+  last_name: string
+  middle_name: string
+  position: string
+  status: string
+}
+
 const DutyTypesByDepartmentPage: React.FC = () => {
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([])
   const [department, setDepartment] = useState<Department | null>(null)
   const [structure, setStructure] = useState<Department | null>(null)
+  const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -57,6 +67,10 @@ const DutyTypesByDepartmentPage: React.FC = () => {
       // Получаем типы нарядов для подразделения
       const dutyTypesResponse = await api.get(`/duty-types/department/${subdepartmentId}`)
       setDutyTypes(dutyTypesResponse.data)
+      
+      // Получаем сотрудников с их статусами
+      const employeesResponse = await api.get(`/employees/department/${subdepartmentId}/with-status`)
+      setEmployees(employeesResponse.data)
       
       setError(null)
     } catch (err) {
@@ -111,6 +125,20 @@ const DutyTypesByDepartmentPage: React.FC = () => {
   const handleDeleteCancel = () => {
     setIsDeleteModalOpen(false)
     setDutyTypeToDelete(null)
+  }
+
+  const statusOptions = [
+    { value: 'НЛ', label: 'НЛ', color: 'bg-green-100 text-green-800' },
+    { value: 'Б', label: 'Б', color: 'bg-red-100 text-red-800' },
+    { value: 'К', label: 'К', color: 'bg-blue-100 text-blue-800' },
+    { value: 'НВ', label: 'НВ', color: 'bg-purple-100 text-purple-800' },
+    { value: 'НГ', label: 'НГ', color: 'bg-orange-100 text-orange-800' },
+    { value: 'О', label: 'О', color: 'bg-yellow-100 text-yellow-800' },
+  ]
+
+  const getStatusColor = (status: string) => {
+    const statusOption = statusOptions.find(option => option.value === status)
+    return statusOption ? statusOption.color : 'bg-gray-100 text-gray-800'
   }
 
   if (loading) {
@@ -191,17 +219,6 @@ const DutyTypesByDepartmentPage: React.FC = () => {
           </ol>
         </nav>
 
-        {/* Кнопка назад */}
-        <div className="mt-4">
-          <button
-            onClick={handleBackClick}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Назад к подразделениям
-          </button>
-        </div>
-
         {/* Ошибка */}
         {error && (
           <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-4">
@@ -217,6 +234,52 @@ const DutyTypesByDepartmentPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Секция сотрудников с статусами */}
+        <div className="mt-8">
+          <div className="bg-white shadow overflow-hidden sm:rounded-md">
+            <div className="px-4 py-5 sm:px-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                Сотрудники подразделения
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                Статусы сотрудников из раздела "Расход личного состава"
+              </p>
+            </div>
+            <ul className="divide-y divide-gray-200">
+              {employees.length === 0 ? (
+                <li className="px-6 py-4 text-center text-sm text-gray-500">
+                  В этом подразделении нет сотрудников
+                </li>
+              ) : (
+                employees.map((employee) => (
+                  <li key={employee.id}>
+                    <div className="px-4 py-4 sm:px-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <UserIcon className="h-6 w-6 text-gray-400 mr-3" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {employee.last_name} {employee.first_name} {employee.middle_name}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {employee.position}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(employee.status)}`}>
+                            {employee.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        </div>
 
         {/* Таблица типов нарядов */}
         <div className="mt-8 flow-root">
