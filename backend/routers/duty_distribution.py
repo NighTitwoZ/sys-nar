@@ -134,7 +134,7 @@ async def generate_duty_distribution(
     distribution = []
     for dept in departments:
         dept_duties = [d for d in all_duties if any(
-            emp.id == d['employee_id'] and emp.department_id == dept.id 
+            emp[0].id == d['employee_id'] and emp[0].department_id == dept.id 
             for emp in employees_data
         )]
         if dept_duties:

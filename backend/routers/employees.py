@@ -4,8 +4,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from database import get_db
-from models.models import Employee, Department, DutyType, EmployeeDutyType
+from models.models import Employee, Department, DutyType, EmployeeDutyType, Group, EmployeeStatusDetails
 from pydantic import BaseModel
+from datetime import datetime
 
 router = APIRouter()
 
@@ -15,7 +16,13 @@ class EmployeeCreate(BaseModel):
     middle_name: Optional[str] = None
     position: str
     department_id: int
+    group_id: Optional[int] = None
     status: str = "НЛ"
+
+class StatusDetailsCreate(BaseModel):
+    status: str
+    start_date: str
+    notes: Optional[str] = None
 
 class EmployeeResponse(BaseModel):
     id: int
@@ -24,8 +31,10 @@ class EmployeeResponse(BaseModel):
     middle_name: Optional[str] = None
     position: str
     department_id: int
+    group_id: Optional[int] = None
     is_active: bool
     status: str
+    status_updated_at: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -84,6 +93,7 @@ async def get_employees_by_department_with_status(department_id: int, db: AsyncS
         select(Employee)
         .where(Employee.department_id == department_id)
         .where(Employee.is_active == True)
+        .options(selectinload(Employee.status_details))
         .order_by(Employee.last_name, Employee.first_name)
     )
     employees = result.scalars().all()
@@ -91,17 +101,74 @@ async def get_employees_by_department_with_status(department_id: int, db: AsyncS
     # Формируем упрощенный ответ только со статусами
     employees_with_status = []
     for employee in employees:
+        # Получаем последние детали статуса
+        latest_status_detail = None
+        if employee.status_details:
+            latest_status_detail = max(employee.status_details, key=lambda x: x.created_at)
+        
         employee_data = {
             'id': employee.id,
             'first_name': employee.first_name,
             'last_name': employee.last_name,
             'middle_name': employee.middle_name,
             'position': employee.position,
-            'status': employee.status
+            'status': employee.status,
+            'status_updated_at': employee.status_updated_at.isoformat() if employee.status_updated_at else None,
+            'status_start_date': latest_status_detail.start_date.isoformat() if latest_status_detail else None,
+            'status_notes': latest_status_detail.notes if latest_status_detail else None
         }
         employees_with_status.append(employee_data)
     
     return employees_with_status
+
+@router.get("/structure/{structure_id}/status/{status}")
+async def get_employees_by_structure_and_status(structure_id: int, status: str, db: AsyncSession = Depends(get_db)):
+    """Получить сотрудников структуры с определенным статусом"""
+    # Получаем все подразделения структуры
+    result = await db.execute(
+        select(Department)
+        .where(Department.parent_id == structure_id)
+    )
+    departments = result.scalars().all()
+    
+    if not departments:
+        return []
+    
+    department_ids = [dept.id for dept in departments]
+    
+    # Получаем сотрудников с указанным статусом из всех подразделений структуры
+    result = await db.execute(
+        select(Employee)
+        .where(Employee.department_id.in_(department_ids))
+        .where(Employee.status == status)
+        .where(Employee.is_active == True)
+        .options(selectinload(Employee.department), selectinload(Employee.status_details))
+        .order_by(Employee.last_name, Employee.first_name)
+    )
+    employees = result.scalars().all()
+    
+    # Формируем ответ с информацией о подразделении и деталях статуса
+    employees_with_details = []
+    for employee in employees:
+        # Получаем последние детали статуса
+        latest_status_detail = None
+        if employee.status_details:
+            latest_status_detail = max(employee.status_details, key=lambda x: x.created_at)
+        
+        employee_data = {
+            'id': employee.id,
+            'first_name': employee.first_name,
+            'last_name': employee.last_name,
+            'middle_name': employee.middle_name,
+            'position': employee.position,
+            'department_name': employee.department.name if employee.department else 'Неизвестно',
+            'status': employee.status,
+            'status_start_date': latest_status_detail.start_date.isoformat() if latest_status_detail else None,
+            'status_notes': latest_status_detail.notes if latest_status_detail else None
+        }
+        employees_with_details.append(employee_data)
+    
+    return employees_with_details
 
 @router.post("/", response_model=EmployeeResponse)
 async def create_employee(employee: EmployeeCreate, db: AsyncSession = Depends(get_db)):
@@ -112,6 +179,14 @@ async def create_employee(employee: EmployeeCreate, db: AsyncSession = Depends(g
     )
     if not dept_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Подразделение не найдено")
+    
+    # Проверяем существование группы, если указана
+    if employee.group_id:
+        group_result = await db.execute(
+            select(Group).where(Group.id == employee.group_id)
+        )
+        if not group_result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Группа не найдена")
     
     db_employee = Employee(**employee.model_dump())
     db.add(db_employee)
@@ -183,10 +258,54 @@ async def update_employee_status(employee_id: int, status_data: dict, db: AsyncS
         raise HTTPException(status_code=400, detail="Недопустимый статус")
     
     employee.status = new_status
+    employee.status_updated_at = datetime.now()
     await db.commit()
     await db.refresh(employee)
     
     return {"message": "Статус обновлен", "status": employee.status}
+
+@router.post("/{employee_id}/status-details")
+async def save_status_details(employee_id: int, status_details: StatusDetailsCreate, db: AsyncSession = Depends(get_db)):
+    """Сохранить детали статуса сотрудника (дата начала, примечания)"""
+    result = await db.execute(select(Employee).where(Employee.id == employee_id))
+    employee = result.scalar_one_or_none()
+    
+    if not employee:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+    
+    # Проверяем, что статус является допустимым
+    valid_statuses = ["НЛ", "Б", "К", "НВ", "НГ", "О"]
+    if status_details.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail="Недопустимый статус")
+    
+    # Обновляем статус и время изменения в таблице employees
+    employee.status = status_details.status
+    employee.status_updated_at = datetime.now()
+    
+    # Сохраняем детали статуса в отдельную таблицу
+    status_detail = EmployeeStatusDetails(
+        employee_id=employee_id,
+        status=status_details.status,
+        start_date=datetime.strptime(status_details.start_date, "%Y-%m-%d").date(),
+        notes=status_details.notes
+    )
+    
+    try:
+        db.add(status_detail)
+        await db.commit()
+        await db.refresh(employee)
+        await db.refresh(status_detail)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Ошибка при сохранении данных")
+    
+    return {
+        "message": "Детали статуса сохранены",
+        "status": employee.status,
+        "status_updated_at": employee.status_updated_at.isoformat() if employee.status_updated_at else None,
+        "start_date": status_detail.start_date.isoformat(),
+        "notes": status_detail.notes
+    }
 
 @router.get("/{employee_id}/duty-types")
 async def get_employee_duty_types(employee_id: int, db: AsyncSession = Depends(get_db)):

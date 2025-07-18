@@ -6,6 +6,10 @@ import os
 # URL базы данных
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://naradi_user:naradi_password@localhost:5432/naradi_db")
 
+def get_database_url():
+    """Получить URL базы данных"""
+    return DATABASE_URL
+
 # Создание асинхронного движка
 engine = create_async_engine(DATABASE_URL, echo=True)
 

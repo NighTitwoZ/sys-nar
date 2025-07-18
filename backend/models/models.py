@@ -5,7 +5,7 @@ from database import Base
 from datetime import datetime
 
 class Department(Base):
-    """Модель подразделения"""
+    """Модель подразделения (Структура)"""
     __tablename__ = "departments"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -16,8 +16,23 @@ class Department(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Связи
-    employees = relationship("Employee", back_populates="department")
     subdepartments = relationship("Department", backref="parent", remote_side=[id])  # Дочерние подразделения
+    groups = relationship("Group", back_populates="department")
+
+class Group(Base):
+    """Модель группы (новый уровень)"""
+    __tablename__ = "groups"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Связи
+    department = relationship("Department", back_populates="groups")
+    employees = relationship("Employee", back_populates="group")
 
 class Employee(Base):
     """Модель сотрудника"""
@@ -29,15 +44,19 @@ class Employee(Base):
     middle_name = Column(String(100), nullable=True)
     position = Column(String(255), nullable=False)
     department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)  # Новое поле для связи с группой
     is_active = Column(Boolean, default=True)
     status = Column(String(10), nullable=False, default="НЛ")  # НЛ, Б, К, НВ, НГ, О
+    status_updated_at = Column(DateTime(timezone=True), nullable=True)  # Время последнего изменения статуса
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Связи
-    department = relationship("Department", back_populates="employees")
+    department = relationship("Department")
+    group = relationship("Group", back_populates="employees")
     employee_duty_types = relationship("EmployeeDutyType", back_populates="employee")
     duty_records = relationship("DutyRecord", back_populates="employee")
+    status_details = relationship("EmployeeStatusDetails", back_populates="employee")
     
     # Виртуальная связь для получения типов нарядов
     @property
@@ -89,4 +108,18 @@ class DutyRecord(Base):
     
     # Связи
     employee = relationship("Employee", back_populates="duty_records")
-    duty_type = relationship("DutyType") 
+    duty_type = relationship("DutyType")
+
+class EmployeeStatusDetails(Base):
+    """Модель деталей статуса сотрудника"""
+    __tablename__ = "employee_status_details"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    status = Column(String(10), nullable=False)  # НЛ, Б, К, НВ, НГ, О
+    start_date = Column(Date, nullable=False)  # Дата начала статуса
+    notes = Column(Text, nullable=True)  # Примечания
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Связи
+    employee = relationship("Employee", back_populates="status_details") 

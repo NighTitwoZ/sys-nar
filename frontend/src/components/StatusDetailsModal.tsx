@@ -5,6 +5,7 @@ import { api } from '../services/api'
 interface StatusDetailsModalProps {
   isOpen: boolean
   onClose: () => void
+  onSuccess?: () => void
   employee: {
     id: number
     first_name: string
@@ -21,7 +22,7 @@ interface StatusDetails {
   notes?: string
 }
 
-const StatusDetailsModal: React.FC<StatusDetailsModalProps> = ({ isOpen, onClose, employee }) => {
+const StatusDetailsModal: React.FC<StatusDetailsModalProps> = ({ isOpen, onClose, onSuccess, employee }) => {
   const [startDate, setStartDate] = useState('')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
@@ -39,10 +40,10 @@ const StatusDetailsModal: React.FC<StatusDetailsModalProps> = ({ isOpen, onClose
   const getStatusInfo = (status: string) => {
     const statusMap: { [key: string]: { title: string; description: string } } = {
       'НЛ': { title: 'На лицо', description: 'Сотрудник находится на рабочем месте' },
-      'Б': { title: 'Больничный', description: 'Сотрудник находится на больничном листе' },
+      'Б': { title: 'Болен', description: 'Сотрудник находится на больничном листе' },
       'К': { title: 'Командировка', description: 'Сотрудник находится в командировке' },
-      'НВ': { title: 'Не вышел', description: 'Сотрудник не вышел на работу' },
-      'НГ': { title: 'Не готов', description: 'Сотрудник не готов к выполнению задач' },
+      'НВ': { title: 'Наряд внутренний', description: 'Сотрудник находится на внутреннем наряде' },
+      'НГ': { title: 'Наряд гарнизонный', description: 'Сотрудник находится на гарнизонном наряде' },
       'О': { title: 'Отпуск', description: 'Сотрудник находится в отпуске' },
     }
     return statusMap[status] || { title: status, description: 'Статус не определен' }
@@ -55,14 +56,15 @@ const StatusDetailsModal: React.FC<StatusDetailsModalProps> = ({ isOpen, onClose
       setLoading(true)
       setError(null)
       
-      // Здесь можно добавить API вызов для сохранения деталей статуса
-      // await api.post(`/employees/${employee.id}/status-details`, {
-      //   status: employee.status,
-      //   start_date: startDate,
-      //   notes: notes
-      // })
+      // API вызов для сохранения деталей статуса
+      const response = await api.post(`/employees/${employee.id}/status-details`, {
+        status: employee.status,
+        start_date: startDate,
+        notes: notes
+      })
       
       onClose()
+      onSuccess?.()
     } catch (err) {
       setError('Ошибка при сохранении данных')
       console.error('Error saving status details:', err)

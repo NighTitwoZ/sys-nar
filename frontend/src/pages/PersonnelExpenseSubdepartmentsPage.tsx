@@ -160,6 +160,43 @@ const PersonnelExpenseSubdepartmentsPage: React.FC = () => {
           </button>
         </div>
 
+        {/* Фильтрация по статусам */}
+        <div className="mt-6 bg-white shadow rounded-lg p-6">
+          <h3 className="text-lg font-semibold mb-4">Фильтрация сотрудников по статусам</h3>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => navigate(`/personnel-expense/${structureId}/employees/status/Б`)}
+              className="px-6 py-3 text-sm font-medium rounded-lg border-2 border-red-300 bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+            >
+              Б
+            </button>
+            <button
+              onClick={() => navigate(`/personnel-expense/${structureId}/employees/status/НВ`)}
+              className="px-6 py-3 text-sm font-medium rounded-lg border-2 border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors"
+            >
+              НВ
+            </button>
+            <button
+              onClick={() => navigate(`/personnel-expense/${structureId}/employees/status/НГ`)}
+              className="px-6 py-3 text-sm font-medium rounded-lg border-2 border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors"
+            >
+              НГ
+            </button>
+            <button
+              onClick={() => navigate(`/personnel-expense/${structureId}/employees/status/К`)}
+              className="px-6 py-3 text-sm font-medium rounded-lg border-2 border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+            >
+              К
+            </button>
+            <button
+              onClick={() => navigate(`/personnel-expense/${structureId}/employees/status/О`)}
+              className="px-6 py-3 text-sm font-medium rounded-lg border-2 border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors"
+            >
+              О
+            </button>
+          </div>
+        </div>
+
         {/* Ошибка */}
         {error && (
           <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-4">
@@ -183,7 +220,7 @@ const PersonnelExpenseSubdepartmentsPage: React.FC = () => {
               {subdepartments.map((subdepartment) => (
                 <li key={subdepartment.id}>
                   <button
-                    onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments/${subdepartment.id}/employees`)}
+                    onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments/${subdepartment.id}/groups`)}
                     className="block w-full text-left hover:bg-gray-50"
                   >
                     <div className="px-4 py-4 sm:px-6">

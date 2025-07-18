@@ -7,13 +7,15 @@ interface AddEmployeeModalProps {
   onClose: () => void
   onSuccess: () => void
   departmentId?: number
+  groupId?: number
 }
 
 const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  departmentId
+  departmentId,
+  groupId
 }) => {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -42,13 +44,20 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({
       setLoading(true)
       setError(null)
       
-      await api.post('/employees', {
+      const employeeData: any = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         middle_name: middleName.trim() || null,
         position: position.trim(),
         department_id: selectedDepartmentId
-      })
+      }
+
+      // Добавляем group_id если он передан
+      if (groupId) {
+        employeeData.group_id = groupId
+      }
+      
+      await api.post('/employees', employeeData)
       
       // Сброс формы
       setFirstName('')
@@ -94,6 +103,11 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({
               {departmentId && (
                 <p className="text-sm text-gray-600 mt-1">
                   Сотрудник будет добавлен в текущее подразделение
+                </p>
+              )}
+              {groupId && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Сотрудник будет добавлен в текущую группу
                 </p>
               )}
             </div>
@@ -173,8 +187,6 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({
                 />
               </div>
 
-
-
               {/* Ошибка */}
               {error && (
                 <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-md p-3">
@@ -197,14 +209,7 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({
                   disabled={loading}
                   className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                 >
-                  {loading ? (
-                    <div className="flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Создание...
-                    </div>
-                  ) : (
-                    'Создать'
-                  )}
+                  {loading ? 'Создание...' : 'Создать'}
                 </button>
               </div>
             </div>

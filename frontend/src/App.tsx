@@ -4,6 +4,8 @@ import HomePage from './pages/HomePage'
 import DepartmentsPage from './pages/DepartmentsPage'
 import StructureDetailPage from './pages/StructureDetailPage'
 import DepartmentDetailPage from './pages/DepartmentDetailPage'
+import DepartmentGroupsPage from './pages/DepartmentGroupsPage'
+import GroupEmployeesPage from './pages/GroupEmployeesPage'
 import DutyTypesPage from './pages/DutyTypesPage'
 import DutyDistributionPage from './pages/DutyDistributionPage'
 import AcademicDutyPage from './pages/AcademicDutyPage'
@@ -16,6 +18,9 @@ import StructureAllDutyTypesPage from './pages/StructureAllDutyTypesPage'
 import PersonnelExpensePage from './pages/PersonnelExpensePage'
 import PersonnelExpenseSubdepartmentsPage from './pages/PersonnelExpenseSubdepartmentsPage'
 import PersonnelExpenseEmployeesPage from './pages/PersonnelExpenseEmployeesPage'
+import PersonnelExpenseGroupsPage from './pages/PersonnelExpenseGroupsPage'
+import PersonnelExpenseGroupEmployeesPage from './pages/PersonnelExpenseGroupEmployeesPage'
+import PersonnelExpenseStructureEmployeesPage from './pages/PersonnelExpenseStructureEmployeesPage'
 
 function App() {
   return (
@@ -25,6 +30,8 @@ function App() {
         <Route path="/departments" element={<DepartmentsPage />} />
         <Route path="/departments/:structureId/subdepartments" element={<SubdepartmentsPage />} />
         <Route path="/departments/:structureId/subdepartments/:departmentId" element={<DepartmentDetailPage />} />
+        <Route path="/departments/:structureId/:departmentId/groups" element={<DepartmentGroupsPage />} />
+        <Route path="/departments/:structureId/:departmentId/groups/:groupId/employees" element={<GroupEmployeesPage />} />
         <Route path="/duty-types" element={<DutyTypesPage />} />
         <Route path="/duty-distribution" element={<DutyDistributionPage />} />
         <Route path="/academic-duty" element={<AcademicDutyPage />} />
@@ -35,7 +42,10 @@ function App() {
         <Route path="/duty-structures/:structureId/subdepartments/:subdepartmentId/duty-types" element={<DutyTypesByDepartmentPage />} />
         <Route path="/personnel-expense" element={<PersonnelExpensePage />} />
         <Route path="/personnel-expense/:structureId/subdepartments" element={<PersonnelExpenseSubdepartmentsPage />} />
+        <Route path="/personnel-expense/:structureId/subdepartments/:departmentId/groups" element={<PersonnelExpenseGroupsPage />} />
+        <Route path="/personnel-expense/:structureId/subdepartments/:departmentId/groups/:groupId/employees" element={<PersonnelExpenseGroupEmployeesPage />} />
         <Route path="/personnel-expense/:structureId/subdepartments/:departmentId/employees" element={<PersonnelExpenseEmployeesPage />} />
+        <Route path="/personnel-expense/:structureId/employees/status/:status" element={<PersonnelExpenseStructureEmployeesPage />} />
       </Routes>
     </Layout>
   )
