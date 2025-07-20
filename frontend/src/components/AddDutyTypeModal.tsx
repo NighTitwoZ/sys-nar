@@ -7,20 +7,27 @@ interface AddDutyTypeModalProps {
   onClose: () => void
   onSuccess: () => void
   departmentId?: number // ID подразделения, для которого создается тип наряда
+  isAcademic?: boolean // Если true, создает академический наряд по умолчанию
 }
 
 const AddDutyTypeModal: React.FC<AddDutyTypeModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  departmentId
+  departmentId,
+  isAcademic = false
 }) => {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [peoplePerDay, setPeoplePerDay] = useState(1)
-  const [dutyCategory, setDutyCategory] = useState('internal')
+  const [dutyCategory, setDutyCategory] = useState(isAcademic ? 'academic' : 'department')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value) || 1;
+    setPeoplePerDay(value);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,7 +47,7 @@ const AddDutyTypeModal: React.FC<AddDutyTypeModalProps> = ({
           name: name.trim(),
           description: description.trim() || null,
           people_per_day: peoplePerDay,
-          duty_category: dutyCategory,
+          duty_category: 'department', // Для подразделений всегда используем 'department'
           department_id: departmentId
         })
       } else {
@@ -135,42 +142,34 @@ const AddDutyTypeModal: React.FC<AddDutyTypeModalProps> = ({
                 />
               </div>
 
-              {/* Категория наряда */}
-              <div>
-                <label htmlFor="dutyCategory" className="block text-sm font-medium text-gray-700">
-                  Категория наряда *
-                </label>
-                <select
-                  id="dutyCategory"
-                  value={dutyCategory}
-                  onChange={(e) => setDutyCategory(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  disabled={loading}
-                >
-                  <option value="academic">Академический</option>
-                  <option value="division">По подразделению</option>
-                </select>
-                <p className="mt-1 text-sm text-gray-500">
-                  Выберите категорию наряда
-                </p>
-              </div>
-
               {/* Количество человек в сутки */}
               <div>
                 <label htmlFor="peoplePerDay" className="block text-sm font-medium text-gray-700">
-                  Количество человек в сутки *
+                  Количество человек в сутки: {peoplePerDay} *
                 </label>
                 <input
-                  type="number"
+                  type="range"
                   id="peoplePerDay"
                   value={peoplePerDay}
-                  onChange={(e) => setPeoplePerDay(parseInt(e.target.value) || 1)}
+                  onChange={handleSliderChange}
                   min="1"
                   max="10"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  placeholder="Введите количество человек"
+                  step="1"
+                  className="mt-1 block w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                   disabled={loading}
                 />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>1</span>
+                  <span>2</span>
+                  <span>3</span>
+                  <span>4</span>
+                  <span>5</span>
+                  <span>6</span>
+                  <span>7</span>
+                  <span>8</span>
+                  <span>9</span>
+                  <span>10</span>
+                </div>
                 <p className="mt-1 text-sm text-gray-500">
                   Сколько человек заступает в этот наряд в сутки
                 </p>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { 
   ChevronRightIcon, 
   ArrowLeftIcon, 
@@ -8,15 +8,14 @@ import {
   PlusIcon,
   PencilIcon,
   TrashIcon,
-  MagnifyingGlassIcon,
-  Cog6ToothIcon
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 import CreateGroupModal from '../components/CreateGroupModal'
 import EditGroupModal from '../components/EditGroupModal'
 import EditEmployeeModal from '../components/EditEmployeeModal'
+import AddEmployeeModal from '../components/AddEmployeeModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
-import EmployeeDutyTypesModal from '../components/EmployeeDutyTypesModal'
 
 interface Structure {
   id: number
@@ -48,52 +47,59 @@ interface Employee {
   rank?: string
   status: string
   group_id?: number
+  department_id: number
+  is_active: boolean
+  duty_types?: Array<{
+    id: number
+    name: string
+    duty_category: string
+    people_per_day: number
+  }>
 }
 
 const DepartmentDetailPage: React.FC = () => {
-  const { structureId, departmentId } = useParams<{ structureId: string; departmentId: string }>()
+  const { structureId, departmentId } = useParams<{ structureId: string, departmentId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [structure, setStructure] = useState<Structure | null>(null)
   const [department, setDepartment] = useState<Department | null>(null)
   const [groups, setGroups] = useState<Group[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedGroupForEdit, setSelectedGroupForEdit] = useState<Group | null>(null)
   const [isEditEmployeeModalOpen, setIsEditEmployeeModalOpen] = useState(false)
+  const [isAddEmployeeModalOpen, setIsAddEmployeeModalOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'group' | 'employee', id: number, name: string } | null>(null)
-  const [isEmployeeDutyTypesModalOpen, setIsEmployeeDutyTypesModalOpen] = useState(false)
 
   useEffect(() => {
     fetchData()
   }, [structureId, departmentId])
 
-  // Дополнительный useEffect для перезагрузки данных при фокусе на странице
+  // Перезагрузка данных при изменении URL (возврате на страницу)
   useEffect(() => {
-    const handleFocus = () => {
-      fetchData()
-    }
-    
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [])
+    fetchData()
+  }, [location.pathname])
 
   const fetchData = async () => {
     try {
       setLoading(true)
       setError(null)
       
+      // Добавляем уникальный параметр времени для обхода кэширования
+      const timestamp = Date.now()
+      
       const [structureRes, departmentRes, groupsRes, employeesRes] = await Promise.all([
-        api.get(`/departments/${structureId}`),
-        api.get(`/departments/${departmentId}`),
-        api.get(`/groups?department_id=${departmentId}`),
-        api.get(`/employees/department/${departmentId}`)
+        api.get(`/departments/${structureId}?_t=${timestamp}`),
+        api.get(`/departments/${departmentId}?_t=${timestamp}`),
+        api.get(`/groups?department_id=${departmentId}&_t=${timestamp}`),
+        api.get(`/employees/department/${departmentId}?_t=${timestamp}`)
       ])
       
       setStructure(structureRes.data)
@@ -147,6 +153,12 @@ const DepartmentDetailPage: React.FC = () => {
     }
   }
 
+  const getGroupName = (groupId?: number) => {
+    if (!groupId) return 'Без группы'
+    const group = groups.find(g => g.id === groupId)
+    return group ? group.name : 'Неизвестная группа'
+  }
+
   const handleCreateGroup = () => {
     setIsCreateModalOpen(true)
   }
@@ -188,6 +200,11 @@ const DepartmentDetailPage: React.FC = () => {
     fetchData()
   }
 
+  const handleEmployeeAdded = () => {
+    setIsAddEmployeeModalOpen(false)
+    fetchData()
+  }
+
   const handleDeleteConfirmed = async () => {
     if (!deleteTarget) return
 
@@ -205,16 +222,6 @@ const DepartmentDetailPage: React.FC = () => {
       console.error('Error deleting item:', err)
       setError('Ошибка при удалении')
     }
-  }
-
-  const handleOpenEmployeeDutyTypesModal = (employee: Employee) => {
-    setSelectedEmployee(employee)
-    setIsEmployeeDutyTypesModalOpen(true)
-  }
-
-  const handleEmployeeDutyTypesModalClosed = () => {
-    setIsEmployeeDutyTypesModalOpen(false)
-    setSelectedEmployee(null)
   }
 
   if (loading) {
@@ -292,11 +299,11 @@ const DepartmentDetailPage: React.FC = () => {
         {/* Кнопки навигации */}
         <div className="mb-4">
           <button
-            onClick={() => navigate(`/departments/${structureId}/subdepartments`)}
+            onClick={() => navigate(-1)}
             className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Назад к подразделениям
+            Назад
           </button>
         </div>
 
@@ -421,7 +428,16 @@ const DepartmentDetailPage: React.FC = () => {
         {/* Список сотрудников подразделения */}
         {filteredEmployees.length > 0 && (
           <div className="bg-white shadow rounded-lg p-6 mb-8">
-            <h3 className="text-lg font-semibold mb-4">Сотрудники подразделения</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Сотрудники подразделения</h3>
+              <button
+                onClick={() => setIsAddEmployeeModalOpen(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Добавить сотрудника
+              </button>
+            </div>
             <ul className="divide-y divide-gray-200">
               {filteredEmployees.map((employee) => (
                 <li key={employee.id} className="py-3">
@@ -434,8 +450,8 @@ const DepartmentDetailPage: React.FC = () => {
                         <p className="text-sm text-gray-500">{employee.position}</p>
                         {employee.rank && <p className="text-sm text-gray-500">{employee.rank}</p>}
                       </div>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(employee.status)}`}>
-                        {getStatusLabel(employee.status)}
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {getGroupName(employee.group_id)}
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -445,13 +461,6 @@ const DepartmentDetailPage: React.FC = () => {
                         title="Редактировать сотрудника"
                       >
                         <PencilIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleOpenEmployeeDutyTypesModal(employee)}
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                        title="Управление типами нарядов"
-                      >
-                        <Cog6ToothIcon className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteEmployee(employee)}
@@ -508,6 +517,15 @@ const DepartmentDetailPage: React.FC = () => {
         }}
         onSuccess={handleEmployeeUpdated}
         employee={selectedEmployee}
+        departmentId={parseInt(departmentId || '0')}
+      />
+
+      {/* Модальное окно добавления сотрудника */}
+      <AddEmployeeModal
+        isOpen={isAddEmployeeModalOpen}
+        onClose={() => setIsAddEmployeeModalOpen(false)}
+        onSuccess={handleEmployeeAdded}
+        departmentId={parseInt(departmentId || '0')}
       />
 
       {/* Модальное окно подтверждения удаления */}
@@ -520,13 +538,6 @@ const DepartmentDetailPage: React.FC = () => {
         onConfirm={handleDeleteConfirmed}
         title={deleteTarget?.type === 'group' ? 'Удалить группу?' : 'Удалить сотрудника?'}
         message={deleteTarget ? `Вы уверены, что хотите удалить "${deleteTarget.name}"? Это действие нельзя отменить.` : ''}
-      />
-
-      {/* Модальное окно управления типами нарядов сотрудника */}
-      <EmployeeDutyTypesModal
-        isOpen={isEmployeeDutyTypesModalOpen}
-        onClose={handleEmployeeDutyTypesModalClosed}
-        employee={selectedEmployee}
       />
     </div>
   )

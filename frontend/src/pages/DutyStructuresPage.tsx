@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ChevronRightIcon } from '@heroicons/react/24/outline'
+import { ChevronRightIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 import { useNavigate } from 'react-router-dom'
 
@@ -52,6 +52,19 @@ const DutyStructuresPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Хлебные крошки */}
+        <nav className="flex mb-6" aria-label="Breadcrumb">
+          <ol className="flex items-center space-x-2">
+            <li>
+              <span className="text-sm font-medium text-indigo-600">Наряды</span>
+            </li>
+            <li className="text-gray-400">{'>'}</li>
+            <li>
+              <span className="text-sm font-medium text-gray-900">Структуры</span>
+            </li>
+          </ol>
+        </nav>
+
         {/* Заголовок */}
         <div className="sm:flex sm:items-center">
           <div className="sm:flex-auto">
@@ -70,23 +83,6 @@ const DutyStructuresPage: React.FC = () => {
             </button>
           </div>
         </div>
-
-        {/* Хлебные крошки */}
-        <nav className="flex mt-4" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
-            <li>
-              <div className="flex items-center">
-                <span className="text-sm font-medium text-gray-500">Наряды</span>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <span className="ml-4 text-sm font-medium text-gray-900">Структуры</span>
-              </div>
-            </li>
-          </ol>
-        </nav>
 
         {/* Ошибка */}
         {error && (

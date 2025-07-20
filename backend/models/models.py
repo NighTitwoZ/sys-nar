@@ -69,7 +69,7 @@ class DutyType(Base):
     __tablename__ = "duty_types"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False, unique=True)
+    name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     duty_category = Column(String(50), default="academic")  # Вид наряда: academic/division
     people_per_day = Column(Integer, default=1)  # Количество человек в сутки
@@ -122,4 +122,18 @@ class EmployeeStatusDetails(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Связи
-    employee = relationship("Employee", back_populates="status_details") 
+    employee = relationship("Employee", back_populates="status_details")
+
+class DepartmentDutyDay(Base):
+    """Модель дня дежурства подразделения в академическом наряде"""
+    __tablename__ = "department_duty_days"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
+    duty_type_id = Column(Integer, ForeignKey("duty_types.id"), nullable=False)
+    duty_date = Column(Date, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Связи
+    department = relationship("Department")
+    duty_type = relationship("DutyType") 

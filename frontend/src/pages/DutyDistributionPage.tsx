@@ -146,6 +146,16 @@ const DutyDistributionPage: React.FC = () => {
     }
   };
 
+  // Функция для форматирования даты в читаемый вид
+  const formatDateRange = (startDate: Date, endDate: Date) => {
+    const formatDate = (date: Date) => {
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      return `${day}.${month}`;
+    };
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  };
+
   const handleGenerate = async () => {
     if (!dateRange.startDate || !dateRange.endDate || !selectedStructureId) {
       setError('Выберите период и структуру/подразделение');
@@ -558,6 +568,11 @@ const DutyDistributionPage: React.FC = () => {
                             Заступает в сутки: {dept.duties.reduce((sum, duty) => sum + (duty.people_per_day || 0), 0)}
                           </span>
                         </div>
+                        {dateRange.startDate && dateRange.endDate && (
+                          <div className="mt-2 text-xs text-gray-400">
+                            Период: {formatDateRange(dateRange.startDate, dateRange.endDate)}
+                          </div>
+                        )}
                       </div>
                       <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-indigo-100 text-indigo-700 font-bold">
                         {dept.duties.length}

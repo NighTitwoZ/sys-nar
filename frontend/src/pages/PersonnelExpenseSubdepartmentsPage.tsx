@@ -64,7 +64,7 @@ const PersonnelExpenseSubdepartmentsPage: React.FC = () => {
   }
 
   const handleBackClick = () => {
-    navigate('/personnel-expense')
+    navigate(-1)
   }
 
   const statusOptions = [
@@ -127,24 +127,26 @@ const PersonnelExpenseSubdepartmentsPage: React.FC = () => {
 
         {/* Хлебные крошки */}
         <nav className="flex mt-4" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
+          <ol className="flex items-center space-x-2">
             <li>
-              <div className="flex items-center">
-                <button
-                  onClick={handleBackClick}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Расход личного состава
-                </button>
-              </div>
+              <button
+                onClick={handleBackClick}
+                className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                Главная
+              </button>
             </li>
+            <li className="text-gray-400">{'>'}</li>
             <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <span className="ml-4 text-sm font-medium text-gray-900">
-                  {structure?.name}
-                </span>
-              </div>
+              <span className="text-sm font-medium text-gray-900">
+                Структуры
+              </span>
+            </li>
+            <li className="text-gray-400">{'>'}</li>
+            <li>
+              <span className="text-sm font-medium text-gray-900">
+                {structure?.name}
+              </span>
             </li>
           </ol>
         </nav>
@@ -156,7 +158,7 @@ const PersonnelExpenseSubdepartmentsPage: React.FC = () => {
             className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Назад к структурам
+            Назад
           </button>
         </div>
 

@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import HomePage from './pages/HomePage'
 import DepartmentsPage from './pages/DepartmentsPage'
@@ -12,6 +12,8 @@ import AcademicDutyPage from './pages/AcademicDutyPage'
 import DutyStructuresPage from './pages/DutyStructuresPage'
 import DutySubdepartmentsPage from './pages/DutySubdepartmentsPage'
 import DutyTypesByDepartmentPage from './pages/DutyTypesByDepartmentPage'
+import DutyTypeEmployeesPage from './pages/DutyTypeEmployeesPage'
+import DutyStructureEmployeesPage from './pages/DutyStructureEmployeesPage'
 import SubdepartmentsPage from './pages/SubdepartmentsPage'
 import AllDutyTypesPage from './pages/AllDutyTypesPage'
 import StructureAllDutyTypesPage from './pages/StructureAllDutyTypesPage'
@@ -21,8 +23,10 @@ import PersonnelExpenseEmployeesPage from './pages/PersonnelExpenseEmployeesPage
 import PersonnelExpenseGroupsPage from './pages/PersonnelExpenseGroupsPage'
 import PersonnelExpenseGroupEmployeesPage from './pages/PersonnelExpenseGroupEmployeesPage'
 import PersonnelExpenseStructureEmployeesPage from './pages/PersonnelExpenseStructureEmployeesPage'
+import DutyDepartmentEmployeesPage from './pages/DutyDepartmentEmployeesPage'
 
 function App() {
+  const location = useLocation()
   return (
     <Layout>
       <Routes>
@@ -38,11 +42,14 @@ function App() {
         <Route path="/duty-structures" element={<DutyStructuresPage />} />
         <Route path="/duty-structures/all" element={<AllDutyTypesPage />} />
         <Route path="/duty-structures/:structureId/all" element={<StructureAllDutyTypesPage />} />
-        <Route path="/duty-structures/:structureId/subdepartments" element={<DutySubdepartmentsPage />} />
-        <Route path="/duty-structures/:structureId/subdepartments/:subdepartmentId/duty-types" element={<DutyTypesByDepartmentPage />} />
+        <Route path="/duty-structures/:structureId/subdepartments" element={<DutySubdepartmentsPage key={location.pathname} />} />
+        <Route path="/duty-structures/:structureId/subdepartments/:subdepartmentId/duty-types" element={<DutyTypesByDepartmentPage key={location.pathname} />} />
+        <Route path="/duty-structures/:structureId/subdepartments/:subdepartmentId/duty-types/:dutyTypeId/employees" element={<DutyTypeEmployeesPage key={location.pathname} />} />
+        <Route path="/duty-structures/:structureId/subdepartments/:subdepartmentId/employees" element={<DutyDepartmentEmployeesPage key={location.pathname} />} />
+        <Route path="/duty-structures/:structureId/employees" element={<DutyStructureEmployeesPage key={location.pathname} />} />
         <Route path="/personnel-expense" element={<PersonnelExpensePage />} />
         <Route path="/personnel-expense/:structureId/subdepartments" element={<PersonnelExpenseSubdepartmentsPage />} />
-        <Route path="/personnel-expense/:structureId/subdepartments/:departmentId/groups" element={<PersonnelExpenseGroupsPage />} />
+        <Route path="/personnel-expense/:structureId/subdepartments/:departmentId/groups" element={<PersonnelExpenseGroupsPage key={location.pathname} />} />
         <Route path="/personnel-expense/:structureId/subdepartments/:departmentId/groups/:groupId/employees" element={<PersonnelExpenseGroupEmployeesPage />} />
         <Route path="/personnel-expense/:structureId/subdepartments/:departmentId/employees" element={<PersonnelExpenseEmployeesPage />} />
         <Route path="/personnel-expense/:structureId/employees/status/:status" element={<PersonnelExpenseStructureEmployeesPage />} />

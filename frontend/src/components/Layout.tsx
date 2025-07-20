@@ -5,7 +5,6 @@ import {
   BuildingOfficeIcon, 
   CalendarIcon,
   ClipboardDocumentListIcon,
-  AcademicCapIcon,
   ChevronDownIcon,
   UserGroupIcon
 } from '@heroicons/react/24/outline'
@@ -34,15 +33,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const navigation = [
     { name: 'Главная', href: '/', icon: HomeIcon },
-    { name: 'Структуры', href: '/departments', icon: BuildingOfficeIcon },
     { name: 'Наряды', href: '/duty-structures', icon: ClipboardDocumentListIcon },
-    { name: 'Академические наряды', href: '/academic-duty', icon: AcademicCapIcon },
     { name: 'Распределение нарядов', href: '/duty-distribution', icon: CalendarIcon },
   ]
 
   const systemMenu = [
     { name: 'Система нарядов', href: '/', icon: ClipboardDocumentListIcon },
     { name: 'Расход личного состава', href: '/personnel-expense', icon: UserGroupIcon },
+    { name: 'Управление личным составом', href: '/departments', icon: BuildingOfficeIcon },
   ]
 
   return (
@@ -52,13 +50,33 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
+              {/* Вкладка Главная */}
               <div className="flex-shrink-0 flex items-center">
+                <Link
+                  to="/"
+                  className={`inline-flex items-center px-3 py-2 border-b-2 text-sm font-medium ${
+                    location.pathname === '/'
+                      ? 'border-indigo-500 text-gray-900'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  }`}
+                >
+                  <HomeIcon className="h-5 w-5 mr-2" />
+                  Главная
+                </Link>
+              </div>
+
+              {/* Раскрывающийся список Система нарядов */}
+              <div className="flex-shrink-0 flex items-center ml-6">
                 <div className="relative" ref={menuRef}>
                   <button
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                     className="flex items-center text-xl font-semibold text-gray-900 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
-                    {location.pathname.startsWith('/personnel-expense') ? 'Расход личного состава' : 'Система нарядов'}
+                    {location.pathname.startsWith('/personnel-expense') 
+                      ? 'Расход личного состава' 
+                      : location.pathname.startsWith('/departments')
+                      ? 'Управление личным составом'
+                      : 'Система нарядов'}
                     <ChevronDownIcon className="ml-2 h-5 w-5" />
                   </button>
                   
@@ -93,9 +111,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   )}
                 </div>
               </div>
-              {!location.pathname.startsWith('/personnel-expense') && (
+
+              {/* Остальные вкладки навигации */}
+              {!location.pathname.startsWith('/personnel-expense') && !location.pathname.startsWith('/departments') && (
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                {navigation.map((item) => {
+                {navigation.slice(1).map((item) => {
                     const isActive = item.href === '/' 
                       ? location.pathname === item.href
                       : location.pathname.startsWith(item.href)

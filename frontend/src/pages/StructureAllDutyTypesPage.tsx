@@ -20,7 +20,10 @@ interface Department {
 
 const StructureAllDutyTypesPage: React.FC = () => {
   const [dutyTypes, setDutyTypes] = useState<DutyTypeWithDepartment[]>([])
+  const [allDutyTypes, setAllDutyTypes] = useState<DutyTypeWithDepartment[]>([])
   const [structure, setStructure] = useState<Department | null>(null)
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
@@ -40,8 +43,13 @@ const StructureAllDutyTypesPage: React.FC = () => {
       const structureResponse = await api.get(`/departments/${structureId}`)
       setStructure(structureResponse.data)
       
+      // Получаем подразделения структуры
+      const departmentsResponse = await api.get(`/departments/${structureId}/subdepartments`)
+      setDepartments(departmentsResponse.data)
+      
       // Получаем все типы нарядов структуры
       const dutyTypesResponse = await api.get(`/duty-types/structure/${structureId}/all`)
+      setAllDutyTypes(dutyTypesResponse.data)
       setDutyTypes(dutyTypesResponse.data)
       
       setError(null)
@@ -53,8 +61,21 @@ const StructureAllDutyTypesPage: React.FC = () => {
     }
   }
 
+  // Функция фильтрации по подразделению
+  const filterByDepartment = (departmentId: string) => {
+    setSelectedDepartment(departmentId)
+    if (departmentId === 'all') {
+      setDutyTypes(allDutyTypes)
+    } else {
+      const filtered = allDutyTypes.filter(dutyType => 
+        dutyType.department_name === departments.find(d => d.id.toString() === departmentId)?.name
+      )
+      setDutyTypes(filtered)
+    }
+  }
+
   const handleBackClick = () => {
-    navigate('/duty-structures')
+    navigate(-1)
   }
 
   if (loading) {
@@ -72,6 +93,41 @@ const StructureAllDutyTypesPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Хлебные крошки */}
+        <nav className="flex mb-6" aria-label="Breadcrumb">
+          <ol className="flex items-center space-x-2">
+            <li>
+              <span className="text-sm font-medium text-indigo-600">Наряды</span>
+            </li>
+            <li className="text-gray-400">{'>'}</li>
+            <li>
+              <button
+                onClick={() => navigate('/duty-structures')}
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                Структуры
+              </button>
+            </li>
+            <li className="text-gray-400">{'>'}</li>
+            <li>
+              <span className="text-sm font-medium text-gray-900">
+                {structure?.name}
+              </span>
+            </li>
+          </ol>
+        </nav>
+
+        {/* Кнопка назад */}
+        <div className="mb-6">
+          <button
+            onClick={handleBackClick}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <ArrowLeftIcon className="h-4 w-4 mr-2" />
+            Назад
+          </button>
+        </div>
+
         {/* Заголовок */}
         <div className="sm:flex sm:items-center">
           <div className="sm:flex-auto">
@@ -82,47 +138,6 @@ const StructureAllDutyTypesPage: React.FC = () => {
               Список всех типов нарядов в структуре {structure?.name}
             </p>
           </div>
-        </div>
-
-        {/* Хлебные крошки */}
-        <nav className="flex mt-4" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
-            <li>
-              <div className="flex items-center">
-                <span className="text-sm font-medium text-gray-500">Наряды</span>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <button
-                  onClick={handleBackClick}
-                  className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Структуры
-                </button>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <span className="ml-4 text-sm font-medium text-gray-900">
-                  {structure?.name}
-                </span>
-              </div>
-            </li>
-          </ol>
-        </nav>
-
-        {/* Кнопка назад */}
-        <div className="mt-4">
-          <button
-            onClick={handleBackClick}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Назад к структурам
-          </button>
         </div>
 
         {/* Ошибка */}
@@ -140,6 +155,31 @@ const StructureAllDutyTypesPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Фильтр по подразделениям */}
+        <div className="mt-6 mb-4">
+          <div className="flex items-center space-x-4">
+            <label htmlFor="department-filter" className="text-sm font-medium text-gray-700">
+              Фильтр по подразделению:
+            </label>
+            <select
+              id="department-filter"
+              value={selectedDepartment}
+              onChange={(e) => filterByDepartment(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="all">Все подразделения</option>
+              {departments.map((department) => (
+                <option key={department.id} value={department.id.toString()}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
+            <span className="text-sm text-gray-500">
+              Показано: {dutyTypes.length} из {allDutyTypes.length}
+            </span>
+          </div>
+        </div>
 
         {/* Таблица */}
         <div className="mt-8 flow-root">

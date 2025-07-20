@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useCallback } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { 
   UserGroupIcon, 
   ChevronRightIcon,
@@ -55,6 +55,7 @@ interface Employee {
 const PersonnelExpenseGroupsPage: React.FC = () => {
   const { structureId, departmentId } = useParams<{ structureId: string; departmentId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const [structure, setStructure] = useState<Structure | null>(null)
   const [department, setDepartment] = useState<Department | null>(null)
   const [groups, setGroups] = useState<Group[]>([])
@@ -71,7 +72,7 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('Все') // Новое состояние для фильтрации по статусу
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (structureId && departmentId) {
       fetchStructure()
       fetchDepartment()
@@ -80,21 +81,32 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
         fetchEmployees()
       }
     }
-  }
+  }, [structureId, departmentId])
 
   useEffect(() => {
     fetchData()
-  }, [structureId, departmentId])
+  }, [structureId, departmentId, fetchData])
 
-  // Дополнительный useEffect для перезагрузки данных при фокусе на странице
+  // Принудительная перезагрузка данных при возврате на страницу
   useEffect(() => {
     const handleFocus = () => {
-      fetchData()
+      if (structureId && departmentId) {
+        setTimeout(() => {
+          fetchData()
+        }, 100)
+      }
     }
     
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
-  }, [])
+  }, [structureId, departmentId, fetchData])
+
+  // Принудительная перезагрузка данных при изменении URL
+  useEffect(() => {
+    fetchData()
+  }, [location.pathname, fetchData])
+
+  // Убираем useEffect с focus, который может вызывать проблемы
 
   const fetchStructure = async () => {
     try {
@@ -131,7 +143,9 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
 
   const fetchEmployees = async () => {
     try {
-      const response = await api.get(`/employees/department/${departmentId}/with-status`)
+      // Добавляем уникальный параметр времени для обхода кэширования
+      const timestamp = Date.now()
+      const response = await api.get(`/employees/department/${departmentId}/with-status?_t=${timestamp}`)
       setEmployees(response.data)
     } catch (err) {
       // не критично
@@ -264,33 +278,31 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
         <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
+          <ol className="flex items-center space-x-2">
             <li>
-              <div className="flex items-center">
-                <button
-                  onClick={() => navigate('/personnel-expense')}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Расход личного состава
-                </button>
-              </div>
+              <button
+                onClick={() => navigate('/personnel-expense')}
+                className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                Главная
+              </button>
             </li>
+            <li className="text-gray-400">{'>'}</li>
             <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <button
-                  onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments`)}
-                  className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  {structure?.name}
-                </button>
-              </div>
+              <button
+                onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments`)}
+                className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                Структуры
+              </button>
             </li>
+            <li className="text-gray-400">{'>'}</li>
             <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <span className="ml-4 text-sm font-medium text-gray-900">{department.name}</span>
-              </div>
+              <span className="text-sm font-medium text-gray-900">{structure?.name}</span>
+            </li>
+            <li className="text-gray-400">{'>'}</li>
+            <li>
+              <span className="text-sm font-medium text-gray-900">{department.name}</span>
             </li>
           </ol>
         </nav>
@@ -298,11 +310,11 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
         {/* Кнопки навигации */}
         <div className="mb-4 flex gap-4">
           <button
-            onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments`)}
+            onClick={() => navigate(-1)}
             className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Назад к подразделениям
+            Назад
           </button>
           <button
             onClick={saveChanges}
@@ -614,6 +626,7 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
           </div>
         )}
       </div>
+      
       {/* Модальное окно с деталями статуса */}
       <StatusDetailsModal
         isOpen={isStatusModalOpen}
@@ -626,6 +639,7 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
         }}
         employee={selectedEmployee}
       />
+      
       {/* Модальное окно создания группы */}
       <CreateGroupModal
         isOpen={isCreateModalOpen}
@@ -648,4 +662,4 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
   )
 }
 
-export default PersonnelExpenseGroupsPage 
+export default PersonnelExpenseGroupsPage

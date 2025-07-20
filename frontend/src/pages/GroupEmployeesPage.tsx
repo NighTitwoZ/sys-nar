@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { UserIcon, PlusIcon, TrashIcon, PencilIcon, CogIcon, ArrowLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import { useParams, useNavigate } from 'react-router-dom'
+import { UserIcon, PlusIcon, TrashIcon, PencilIcon, ArrowLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 import AddEmployeeModal from '../components/AddEmployeeModal'
 import EditEmployeeModal from '../components/EditEmployeeModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
-import EmployeeDutyTypesModal from '../components/EmployeeDutyTypesModal'
 
 interface Employee {
   id: number
@@ -16,12 +15,6 @@ interface Employee {
   is_active: boolean
   status: string
   group_id: number | null
-  duty_types?: Array<{
-    id: number
-    name: string
-    priority: number
-    people_per_day: number
-  }>
 }
 
 interface Group {
@@ -41,6 +34,7 @@ interface Department {
 
 const GroupEmployeesPage: React.FC = () => {
   const { structureId, departmentId, groupId } = useParams<{ structureId: string; departmentId: string; groupId: string }>()
+  const navigate = useNavigate()
   const [department, setDepartment] = useState<Department | null>(null)
   const [group, setGroup] = useState<Group | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -49,11 +43,9 @@ const GroupEmployeesPage: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [isDutyTypesModalOpen, setIsDutyTypesModalOpen] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null)
   const [employeeToEdit, setEmployeeToEdit] = useState<Employee | null>(null)
-  const [employeeForDutyTypes, setEmployeeForDutyTypes] = useState<Employee | null>(null)
 
   useEffect(() => {
     if (groupId) {
@@ -126,16 +118,6 @@ const GroupEmployeesPage: React.FC = () => {
     setEmployeeToEdit(null)
   }
 
-  const handleDutyTypesClick = (employee: Employee) => {
-    setEmployeeForDutyTypes(employee)
-    setIsDutyTypesModalOpen(true)
-  }
-
-  const handleDutyTypesClose = () => {
-    setIsDutyTypesModalOpen(false)
-    setEmployeeForDutyTypes(null)
-  }
-
   const getStatusColor = (status: string) => {
     const statusColors: { [key: string]: string } = {
       'НЛ': 'bg-green-100 text-green-800',
@@ -179,7 +161,7 @@ const GroupEmployeesPage: React.FC = () => {
             <li>
               <div className="flex items-center">
                 <button
-                  onClick={() => window.location.href = '/departments'}
+                  onClick={() => navigate('/departments')}
                   className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
                 >
                   Структуры
@@ -190,7 +172,7 @@ const GroupEmployeesPage: React.FC = () => {
               <div className="flex items-center">
                 <ChevronRightIcon className="h-4 w-4 text-gray-400" />
                 <button
-                  onClick={() => window.location.href = `/departments/${structureId}/subdepartments`}
+                  onClick={() => navigate(`/departments/${structureId}/subdepartments`)}
                   className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
                 >
                   Подразделения
@@ -201,7 +183,7 @@ const GroupEmployeesPage: React.FC = () => {
               <div className="flex items-center">
                 <ChevronRightIcon className="h-4 w-4 text-gray-400" />
                 <button
-                  onClick={() => window.location.href = `/departments/${structureId}/${departmentId}/groups`}
+                  onClick={() => navigate(`/departments/${structureId}/${departmentId}/groups`)}
                   className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
                 >
                   {department.name}
@@ -220,11 +202,11 @@ const GroupEmployeesPage: React.FC = () => {
         {/* Кнопки навигации */}
         <div className="mb-4 flex gap-4">
           <button
-            onClick={() => window.location.href = `/departments/${structureId}/${departmentId}/groups`}
+            onClick={() => navigate(-1)}
             className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Назад к группам
+            Назад
           </button>
         </div>
 
@@ -277,9 +259,6 @@ const GroupEmployeesPage: React.FC = () => {
                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Статус
                       </th>
-                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Типы нарядов
-                      </th>
                       <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
                         <span className="sr-only">Действия</span>
                       </th>
@@ -309,27 +288,6 @@ const GroupEmployeesPage: React.FC = () => {
                             {employee.status}
                           </span>
                         </td>
-                        <td className="px-3 py-4 text-sm text-gray-500">
-                          {employee.duty_types && employee.duty_types.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {employee.duty_types.map((dutyType) => (
-                                <span
-                                  key={dutyType.id}
-                                  className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                                    dutyType.duty_category === 'academic' 
-                                      ? 'bg-purple-100 text-purple-800' 
-                                      : 'bg-blue-100 text-blue-800'
-                                  }`}
-                                  title={`Вид наряда: ${dutyType.duty_category === 'academic' ? 'Академический' : 'По подразделению'}, Человек/сутки: ${dutyType.people_per_day}`}
-                                >
-                                  {dutyType.name}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">Не назначены</span>
-                          )}
-                        </td>
                         <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                           <div className="flex justify-end space-x-2">
                             <button
@@ -338,13 +296,6 @@ const GroupEmployeesPage: React.FC = () => {
                               title="Редактировать сотрудника"
                             >
                               <PencilIcon className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDutyTypesClick(employee)}
-                              className="text-green-600 hover:text-green-900"
-                              title="Управление типами нарядов"
-                            >
-                              <CogIcon className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteClick(employee)}
@@ -399,13 +350,6 @@ const GroupEmployeesPage: React.FC = () => {
           onClose={handleEditCancel}
           onSuccess={handleEditSuccess}
           employee={employeeToEdit}
-        />
-
-        {/* Модальное окно управления типами нарядов */}
-        <EmployeeDutyTypesModal
-          isOpen={isDutyTypesModalOpen}
-          onClose={handleDutyTypesClose}
-          employee={employeeForDutyTypes}
         />
 
         {/* Модальное окно подтверждения удаления */}

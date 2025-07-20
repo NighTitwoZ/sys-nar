@@ -83,7 +83,18 @@ const EditDutyTypeModal: React.FC<EditDutyTypeModalProps> = ({
     }));
   };
 
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value) || 1;
+    setFormData(prev => ({
+      ...prev,
+      people_per_day: value
+    }));
+  };
+
   if (!isOpen || !dutyType) return null;
+
+  // Определяем, является ли тип наряда "По подразделению"
+  const isDivisionDuty = dutyType.duty_category === 'division' || dutyType.duty_category === 'internal' || dutyType.duty_category === 'department';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -130,51 +141,68 @@ const EditDutyTypeModal: React.FC<EditDutyTypeModalProps> = ({
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Категория наряда *
-            </label>
-            <select
-              name="duty_category"
-              value={formData.duty_category}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="academic">Академический</option>
-              <option value="division">По подразделению</option>
-            </select>
-          </div>
+          {/* Показываем поля категории и вида только для академических нарядов */}
+          {!isDivisionDuty && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Категория наряда *
+                </label>
+                <select
+                  name="duty_category"
+                  value={formData.duty_category}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="academic">Академический</option>
+                  <option value="division">По подразделению</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Вид наряда *
+                </label>
+                <select
+                  name="duty_category"
+                  value={formData.duty_category}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="academic">Академический</option>
+                  <option value="division">По подразделению</option>
+                </select>
+              </div>
+            </>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Вид наряда *
-            </label>
-            <select
-              name="duty_category"
-              value={formData.duty_category}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="academic">Академический</option>
-              <option value="division">По подразделению</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Количество человек в сутки *
+              Количество человек в сутки: {formData.people_per_day} *
             </label>
             <input
-              type="number"
+              type="range"
               name="people_per_day"
               value={formData.people_per_day}
-              onChange={handleChange}
+              onChange={handleSliderChange}
               min="1"
               max="10"
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              step="1"
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
             />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+              <span>6</span>
+              <span>7</span>
+              <span>8</span>
+              <span>9</span>
+              <span>10</span>
+            </div>
           </div>
 
           {error && (

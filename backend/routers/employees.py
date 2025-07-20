@@ -34,7 +34,7 @@ class EmployeeResponse(BaseModel):
     group_id: Optional[int] = None
     is_active: bool
     status: str
-    status_updated_at: Optional[str] = None
+    status_updated_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -67,6 +67,7 @@ async def get_employees_by_department(department_id: int, db: AsyncSession = Dep
             'middle_name': employee.middle_name,
             'position': employee.position,
             'department_id': employee.department_id,
+            'group_id': employee.group_id,
             'is_active': employee.is_active,
             'status': employee.status,
             'duty_types': []
@@ -120,6 +121,56 @@ async def get_employees_by_department_with_status(department_id: int, db: AsyncS
         employees_with_status.append(employee_data)
     
     return employees_with_status
+
+@router.get("/structure/{structure_id}/with-status")
+async def get_employees_by_structure_with_status(structure_id: int, db: AsyncSession = Depends(get_db)):
+    """Получить всех сотрудников структуры с их статусами"""
+    # Получаем все подразделения структуры
+    result = await db.execute(
+        select(Department)
+        .where(Department.parent_id == structure_id)
+    )
+    departments = result.scalars().all()
+    
+    if not departments:
+        return []
+    
+    department_ids = [dept.id for dept in departments]
+    
+    # Получаем всех сотрудников из всех подразделений структуры
+    result = await db.execute(
+        select(Employee)
+        .where(Employee.department_id.in_(department_ids))
+        .where(Employee.is_active == True)
+        .options(selectinload(Employee.department), selectinload(Employee.status_details))
+        .order_by(Employee.last_name, Employee.first_name)
+    )
+    employees = result.scalars().all()
+    
+    # Формируем ответ с информацией о подразделении и деталях статуса
+    employees_with_details = []
+    for employee in employees:
+        # Получаем последние детали статуса
+        latest_status_detail = None
+        if employee.status_details:
+            latest_status_detail = max(employee.status_details, key=lambda x: x.created_at)
+        
+        employee_data = {
+            'id': employee.id,
+            'first_name': employee.first_name,
+            'last_name': employee.last_name,
+            'middle_name': employee.middle_name,
+            'position': employee.position,
+            'rank': getattr(employee, 'rank', None),
+            'department_name': employee.department.name if employee.department else 'Неизвестно',
+            'status': employee.status,
+            'status_updated_at': employee.status_updated_at.isoformat() if employee.status_updated_at else None,
+            'status_start_date': latest_status_detail.start_date.isoformat() if latest_status_detail else None,
+            'status_notes': latest_status_detail.notes if latest_status_detail else None
+        }
+        employees_with_details.append(employee_data)
+    
+    return employees_with_details
 
 @router.get("/structure/{structure_id}/status/{status}")
 async def get_employees_by_structure_and_status(structure_id: int, status: str, db: AsyncSession = Depends(get_db)):

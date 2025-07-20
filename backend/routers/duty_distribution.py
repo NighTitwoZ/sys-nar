@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from typing import List, Dict, Any, Optional
 from database import get_db
-from models.models import Department, Employee, DutyType, DutyRecord, EmployeeDutyType
+from models.models import Department, Employee, DutyType, DutyRecord, EmployeeDutyType, DepartmentDutyDay
 from pydantic import BaseModel
 from datetime import datetime, date, timedelta
 import calendar
@@ -17,6 +17,10 @@ try:
     import openpyxl
 except ImportError:
     openpyxl = None
+
+# Настройка логирования
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -38,6 +42,9 @@ async def generate_duty_distribution(
 ):
     """Генерировать распределение нарядов на выбранный период для конкретного подразделения"""
     
+    logger.debug(f"Начало генерации нарядов")
+    logger.debug(f"Параметры: start_date={request.start_date}, end_date={request.end_date}, department_id={request.department_id}")
+    
     # Парсим даты
     start_date = datetime.strptime(request.start_date, "%Y-%m-%d").date()
     end_date = datetime.strptime(request.end_date, "%Y-%m-%d").date()
@@ -45,6 +52,10 @@ async def generate_duty_distribution(
     # Получаем все типы нарядов
     duty_types_result = await db.execute(select(DutyType))
     duty_types = duty_types_result.scalars().all()
+    
+    logger.debug(f"Найдено типов нарядов: {len(duty_types)}")
+    for dt in duty_types:
+        logger.debug(f"Тип наряда {dt.id}: {dt.name} (категория: {dt.duty_category})")
     
     # Формируем запрос для получения сотрудников
     employee_query = (
@@ -70,7 +81,7 @@ async def generate_duty_distribution(
     
     employees_result = await db.execute(employee_query)
     employees_data = employees_result.all()
-
+    
     # Группируем сотрудников по типам нарядов
     duty_types_employees = {}
     for emp, emp_duty, duty_type in employees_data:
@@ -80,7 +91,7 @@ async def generate_duty_distribution(
                 'employees': []
             }
         duty_types_employees[duty_type.id]['employees'].append(emp)
-        
+    
     # Словарь для отслеживания занятости сотрудников по дням и типам нарядов
     # Формат: {employee_id: {date_key: {duty_type_id, ...}}}
     employee_busy_dates = {}
@@ -98,6 +109,99 @@ async def generate_duty_distribution(
         for duty_type_id, data in duty_types_employees.items():
             duty_type = data['duty_type']
             employees = data['employees']
+            
+            # Проверяем, нужно ли назначать академический наряд в этот день
+            if duty_type.duty_category == "academic":
+                logger.debug(f"Проверяем академический наряд {duty_type.name} для даты {duty_date}")
+                
+                # Проверяем, есть ли запись в календаре для этого типа наряда и подразделения
+                calendar_query = (
+                    select(DepartmentDutyDay)
+                    .where(DepartmentDutyDay.duty_type_id == duty_type_id)
+                    .where(DepartmentDutyDay.duty_date == duty_date)
+                )
+                
+                # Если указано конкретное подразделение
+                if request.department_id:
+                    calendar_query = calendar_query.where(DepartmentDutyDay.department_id == request.department_id)
+                    logger.debug(f"Фильтруем по подразделению {request.department_id}")
+                # Если указана структура, проверяем все подразделения структуры
+                elif request.structure_id:
+                    subdepts_result = await db.execute(
+                        select(Department.id).where(Department.parent_id == request.structure_id)
+                    )
+                    subdept_ids = [row[0] for row in subdepts_result.all()]
+                    if subdept_ids:
+                        calendar_query = calendar_query.where(DepartmentDutyDay.department_id.in_(subdept_ids))
+                        logger.debug(f"Фильтруем по подразделениям структуры {subdept_ids}")
+                    else:
+                        # Если нет подразделений в структуре, пропускаем
+                        logger.debug(f"Нет подразделений в структуре {request.structure_id}")
+                        continue
+                
+                calendar_check_result = await db.execute(calendar_query)
+                calendar_records = calendar_check_result.scalars().all()
+                
+                logger.debug(f"Найдено записей в календаре: {len(calendar_records)}")
+                
+                # Если нет записей в календаре, пропускаем этот день для академического наряда
+                if not calendar_records:
+                    logger.debug(f"Нет записей в календаре, пропускаем")
+                    continue
+                else:
+                    logger.debug(f"Обрабатываем записи календаря")
+                    # Для каждого дня из календаря выбираем сотрудников подразделения
+                    for calendar_record in calendar_records:
+                        department_id = calendar_record.department_id
+                        logger.debug(f"Обрабатываем подразделение {department_id}")
+                        
+                        # Получаем сотрудников подразделения, которые могут заступать в этот тип наряда
+                        department_employees_result = await db.execute(
+                            select(Employee)
+                            .join(EmployeeDutyType, Employee.id == EmployeeDutyType.employee_id)
+                            .where(Employee.department_id == department_id)
+                            .where(EmployeeDutyType.duty_type_id == duty_type_id)
+                            .where(EmployeeDutyType.is_active == True)
+                            .where(Employee.is_active == True)
+                        )
+                        department_employees = department_employees_result.scalars().all()
+                        
+                        logger.debug(f"Найдено сотрудников в подразделении {department_id}: {len(department_employees)}")
+                        
+                        if not department_employees:
+                            logger.debug(f"Нет сотрудников в подразделении {department_id}")
+                            continue
+                        
+                        # Выбираем сотрудников для наряда
+                        selected_employees = await select_employees_for_duty(
+                            department_employees, duty_date, duty_type.people_per_day, 
+                            employee_busy_dates, duty_type_id, db, start_date, end_date
+                        )
+                        
+                        logger.debug(f"Выбрано сотрудников для наряда: {len(selected_employees)}")
+                        
+                        # Назначаем выбранных сотрудников
+                        for selected_employee in selected_employees:
+                            if selected_employee.id not in employee_busy_dates:
+                                employee_busy_dates[selected_employee.id] = {}
+                            if date_key not in employee_busy_dates[selected_employee.id]:
+                                employee_busy_dates[selected_employee.id][date_key] = set()
+                            employee_busy_dates[selected_employee.id][date_key].add(duty_type_id)
+                            
+                            # Добавляем наряд
+                            all_duties.append({
+                                'date': date_key,
+                                'employee_id': selected_employee.id,
+                                'employee_name': f"{selected_employee.last_name} {selected_employee.first_name}",
+                                'duty_type_id': duty_type.id,
+                                'duty_type_name': duty_type.name,
+                                'people_per_day': duty_type.people_per_day,
+                                'is_from_calendar': True  # Флаг для отслеживания записей из календаря
+                            })
+                            logger.debug(f"Добавлен наряд для {selected_employee.last_name} {selected_employee.first_name}")
+                    
+                    # Пропускаем автоматический выбор сотрудников для академических нарядов
+                    continue
             
             # Для каждого типа наряда должно заступить столько людей, сколько указано в people_per_day
             people_needed = duty_type.people_per_day
@@ -133,10 +237,15 @@ async def generate_duty_distribution(
     
     distribution = []
     for dept in departments:
-        dept_duties = [d for d in all_duties if any(
-            emp[0].id == d['employee_id'] and emp[0].department_id == dept.id 
-            for emp in employees_data
-        )]
+        # Получаем сотрудников подразделения для проверки
+        dept_employees_result = await db.execute(
+            select(Employee.id).where(Employee.department_id == dept.id)
+        )
+        dept_employee_ids = [row[0] for row in dept_employees_result.all()]
+        
+        # Фильтруем наряды для этого подразделения
+        dept_duties = [d for d in all_duties if d['employee_id'] in dept_employee_ids]
+        
         if dept_duties:
             distribution.append({
                 'department_id': dept.id,
@@ -146,11 +255,33 @@ async def generate_duty_distribution(
     
     # Сохраняем все наряды в базу
     for duty in all_duties:
-        db.add(DutyRecord(
-            employee_id=duty['employee_id'],
-            duty_type_id=duty['duty_type_id'],
-            duty_date=date.fromisoformat(duty['date'])
-        ))
+        # Проверяем, не является ли это записью из календаря
+        if duty.get('is_from_calendar', False):
+            # Для записей из календаря проверяем, не существует ли уже такая запись
+            existing_record = await db.execute(
+                select(DutyRecord)
+                .where(DutyRecord.employee_id == duty['employee_id'])
+                .where(DutyRecord.duty_type_id == duty['duty_type_id'])
+                .where(DutyRecord.duty_date == date.fromisoformat(duty['date']))
+            )
+            existing_record = existing_record.scalar_one_or_none()
+            
+            if not existing_record:
+                # Если записи нет, создаем новую
+                db.add(DutyRecord(
+                    employee_id=duty['employee_id'],
+                    duty_type_id=duty['duty_type_id'],
+                    duty_date=date.fromisoformat(duty['date'])
+                ))
+            # Если запись уже существует, не перезаписываем её
+        else:
+            # Для обычных нарядов создаем новые записи
+            db.add(DutyRecord(
+                employee_id=duty['employee_id'],
+                duty_type_id=duty['duty_type_id'],
+                duty_date=date.fromisoformat(duty['date'])
+            ))
+    
     await db.commit()
     return distribution
 
@@ -197,12 +328,12 @@ async def select_employees_for_duty(
             .order_by(DutyRecord.duty_date.desc())
             .limit(1)
         )
-        last_duty_date_db = last_duty_result.scalar()
+        last_duty_date = last_duty_result.scalar_one_or_none()
         
         # Учитываем наряды в памяти
         all_dates = set()
-        if last_duty_date_db:
-            all_dates.add(last_duty_date_db)
+        if last_duty_date:
+            all_dates.add(last_duty_date)
         if employee.id in employee_busy_dates:
             for date_str in employee_busy_dates[employee.id]:
                 if duty_type_id in employee_busy_dates[employee.id][date_str]:
@@ -218,12 +349,12 @@ async def select_employees_for_duty(
             .order_by(DutyRecord.duty_date.desc())
             .limit(1)
         )
-        last_any_duty_date_db = last_any_duty_result.scalar()
+        last_any_duty_date = last_any_duty_result.scalar_one_or_none()
         
         # Учитываем наряды в памяти для любого типа
         all_any_dates = set()
-        if last_any_duty_date_db:
-            all_any_dates.add(last_any_duty_date_db)
+        if last_any_duty_date:
+            all_any_dates.add(last_any_duty_date)
         if employee.id in employee_busy_dates:
             for date_str in employee_busy_dates[employee.id]:
                 all_any_dates.add(date.fromisoformat(date_str))
@@ -313,7 +444,6 @@ async def get_duty_distribution_by_department(
         .where(Employee.department_id == department_id)
     )
     
-    # Если указаны даты, фильтруем по периоду
     if start_date and end_date:
         start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
         end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
@@ -405,7 +535,6 @@ async def clear_duty_records(
     # Формируем запрос для удаления нарядов
     delete_query = (
         select(DutyRecord)
-        .join(Employee, DutyRecord.employee_id == Employee.id)
         .where(DutyRecord.duty_date >= start_date)
         .where(DutyRecord.duty_date <= end_date)
     )

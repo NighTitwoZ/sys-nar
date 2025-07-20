@@ -109,6 +109,46 @@ async def get_groups(
         for group, department, employee_count in groups_data
     ]
 
+@router.get("/department/{department_id}", response_model=List[GroupResponse])
+async def get_groups_by_department(
+    department_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить группы конкретного подразделения"""
+    
+    # Проверяем существование подразделения
+    dept_result = await db.execute(select(Department).where(Department.id == department_id))
+    department = dept_result.scalar_one_or_none()
+    
+    if not department:
+        raise HTTPException(status_code=404, detail="Подразделение не найдено")
+    
+    query = (
+        select(Group, Department, func.count(Employee.id).label('employee_count'))
+        .join(Department, Group.department_id == Department.id)
+        .outerjoin(Employee, Group.id == Employee.group_id)
+        .where(Group.department_id == department_id)
+        .group_by(Group.id, Department.id)
+        .order_by(Group.name)
+    )
+    
+    result = await db.execute(query)
+    groups_data = result.all()
+    
+    return [
+        GroupResponse(
+            id=group.id,
+            name=group.name,
+            description=group.description,
+            department_id=group.department_id,
+            department_name=department.name,
+            employee_count=employee_count,
+            created_at=group.created_at,
+            updated_at=group.updated_at
+        )
+        for group, department, employee_count in groups_data
+    ]
+
 @router.get("/{group_id}", response_model=GroupResponse)
 async def get_group(
     group_id: int,

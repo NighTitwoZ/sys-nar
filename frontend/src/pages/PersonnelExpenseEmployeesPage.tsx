@@ -204,11 +204,11 @@ const PersonnelExpenseEmployeesPage: React.FC = () => {
         {/* Кнопки навигации */}
         <div className="flex space-x-4 mb-6">
           <button
-            onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments`)}
+            onClick={() => navigate(-1)}
             className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Назад к подразделениям
+            Назад
           </button>
           <button
             onClick={saveChanges}

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { ChevronRightIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 
 interface Department {
   id: number
@@ -15,24 +15,27 @@ const DutySubdepartmentsPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
+  const location = useLocation()
   const { structureId } = useParams<{ structureId: string }>()
 
-  useEffect(() => {
-    if (structureId) {
-      fetchStructureAndSubdepartments()
-    }
-  }, [structureId])
-
-  const fetchStructureAndSubdepartments = async () => {
+  const fetchStructureAndSubdepartments = useCallback(async () => {
     try {
       setLoading(true)
+      setError(null)
+      
+      // Очищаем состояние перед загрузкой новых данных
+      setStructure(null)
+      setSubdepartments([])
+      
+      // Добавляем уникальный параметр времени для обхода кэширования
+      const timestamp = Date.now()
       
       // Получаем информацию о структуре
-      const structureResponse = await api.get(`/departments/${structureId}`)
+      const structureResponse = await api.get(`/departments/${structureId}?_t=${timestamp}`)
       setStructure(structureResponse.data)
       
       // Получаем подразделения структуры с статистикой
-      const subdepartmentsResponse = await api.get(`/departments/${structureId}/subdepartments-with-stats`)
+      const subdepartmentsResponse = await api.get(`/departments/${structureId}/subdepartments-with-stats?_t=${timestamp}`)
       setSubdepartments(subdepartmentsResponse.data)
       
       setError(null)
@@ -42,7 +45,34 @@ const DutySubdepartmentsPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [structureId])
+
+  useEffect(() => {
+    if (structureId) {
+      fetchStructureAndSubdepartments()
+    }
+  }, [structureId, fetchStructureAndSubdepartments])
+
+  // Принудительная перезагрузка данных при возврате на страницу
+  useEffect(() => {
+    const handleFocus = () => {
+      if (structureId) {
+        setTimeout(() => {
+          fetchStructureAndSubdepartments()
+        }, 100)
+      }
+    }
+    
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [structureId, fetchStructureAndSubdepartments])
+
+  // Принудительная перезагрузка данных при изменении URL
+  useEffect(() => {
+    if (structureId) {
+      fetchStructureAndSubdepartments()
+    }
+  }, [location.pathname, structureId, fetchStructureAndSubdepartments])
 
   const handleSubdepartmentClick = (subdepartment: Department) => {
     navigate(`/duty-structures/${structureId}/subdepartments/${subdepartment.id}/duty-types`)
@@ -67,6 +97,41 @@ const DutySubdepartmentsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Хлебные крошки */}
+        <nav className="flex mb-6" aria-label="Breadcrumb">
+          <ol className="flex items-center space-x-2">
+            <li>
+              <span className="text-sm font-medium text-indigo-600">Наряды</span>
+            </li>
+            <li className="text-gray-400">{'>'}</li>
+            <li>
+              <button
+                onClick={handleBackClick}
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                Структуры
+              </button>
+            </li>
+            <li className="text-gray-400">{'>'}</li>
+            <li>
+              <span className="text-sm font-medium text-gray-900">
+                {structure?.name}
+              </span>
+            </li>
+          </ol>
+        </nav>
+
+        {/* Кнопка назад */}
+        <div className="mb-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <ArrowLeftIcon className="h-4 w-4 mr-2" />
+            Назад
+          </button>
+        </div>
+
         {/* Заголовок */}
         <div className="sm:flex sm:items-center">
           <div className="sm:flex-auto">
@@ -77,46 +142,25 @@ const DutySubdepartmentsPage: React.FC = () => {
               Выберите подразделение для просмотра типов нарядов
             </p>
           </div>
-          <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-            <button
-              type="button"
-              onClick={() => navigate(`/duty-structures/${structureId}/all`)}
-              className="block rounded-md bg-green-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
-            >
-              Все наряды
-            </button>
-          </div>
         </div>
 
-        {/* Хлебные крошки */}
-        <nav className="flex mt-4" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
-            <li>
-              <div className="flex items-center">
-                <span className="text-sm font-medium text-gray-500">Наряды</span>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <button
-                  onClick={handleBackClick}
-                  className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Структуры
-                </button>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <span className="ml-4 text-sm font-medium text-gray-900">
-                  {structure?.name}
-                </span>
-              </div>
-            </li>
-          </ol>
-        </nav>
+        {/* Кнопки */}
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(`/duty-structures/${structureId}/all`)}
+            className="block rounded-md bg-green-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
+          >
+            Все наряды
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(`/duty-structures/${structureId}/employees`)}
+            className="block rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          >
+            Просмотр сотрудников
+          </button>
+        </div>
 
         {/* Ошибка */}
         {error && (

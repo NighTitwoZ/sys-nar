@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react'
-import { ChevronRightIcon, ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon, UserIcon } from '@heroicons/react/24/outline'
+import React, { useState, useEffect, useCallback } from 'react'
+import { ChevronRightIcon, ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon, UserIcon, CalendarIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import AddDutyTypeModal from '../components/AddDutyTypeModal'
 import EditDutyTypeModal from '../components/EditDutyTypeModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import AcademicDutyTypeModal from '../components/AcademicDutyTypeModal'
+import AcademicDutyCalendarModal from '../components/AcademicDutyCalendarModal'
 
 interface DutyType {
   id: number
@@ -12,6 +14,7 @@ interface DutyType {
   description: string | null
   priority: number
   people_per_day: number
+  duty_category: string
 }
 
 interface Department {
@@ -20,57 +23,43 @@ interface Department {
   description: string | null
 }
 
-interface Employee {
-  id: number
-  first_name: string
-  last_name: string
-  middle_name: string
-  position: string
-  status: string
-}
-
 const DutyTypesByDepartmentPage: React.FC = () => {
   const [dutyTypes, setDutyTypes] = useState<DutyType[]>([])
   const [department, setDepartment] = useState<Department | null>(null)
   const [structure, setStructure] = useState<Department | null>(null)
-  const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isAcademicModalOpen, setIsAcademicModalOpen] = useState(false)
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [dutyTypeToDelete, setDutyTypeToDelete] = useState<DutyType | null>(null)
   const [dutyTypeToEdit, setDutyTypeToEdit] = useState<DutyType | null>(null)
   
   const navigate = useNavigate()
+  const location = useLocation()
   const { structureId, subdepartmentId } = useParams<{ structureId: string; subdepartmentId: string }>()
 
-  useEffect(() => {
-    if (structureId && subdepartmentId) {
-      fetchData()
-    }
-  }, [structureId, subdepartmentId])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       
+      // Добавляем уникальный параметр времени для обхода кэширования
+      const timestamp = Date.now()
+      
       // Получаем информацию о структуре
-      const structureResponse = await api.get(`/departments/${structureId}`)
+      const structureResponse = await api.get(`/departments/${structureId}?_t=${timestamp}`)
       setStructure(structureResponse.data)
       
       // Получаем информацию о подразделении
-      const departmentResponse = await api.get(`/departments/${subdepartmentId}`)
+      const departmentResponse = await api.get(`/departments/${subdepartmentId}?_t=${timestamp}`)
       setDepartment(departmentResponse.data)
       
       // Получаем типы нарядов для подразделения
-      const dutyTypesResponse = await api.get(`/duty-types/department/${subdepartmentId}`)
+      const dutyTypesResponse = await api.get(`/duty-types/department/${subdepartmentId}?_t=${timestamp}`)
       setDutyTypes(dutyTypesResponse.data)
-      
-      // Получаем сотрудников с их статусами
-      const employeesResponse = await api.get(`/employees/department/${subdepartmentId}/with-status`)
-      setEmployees(employeesResponse.data)
       
       setError(null)
     } catch (err) {
@@ -79,7 +68,20 @@ const DutyTypesByDepartmentPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [structureId, subdepartmentId])
+
+  useEffect(() => {
+    if (structureId && subdepartmentId) {
+      fetchData()
+    }
+  }, [structureId, subdepartmentId, fetchData])
+
+  // Перезагрузка данных при изменении URL (возврате на страницу)
+  useEffect(() => {
+    if (structureId && subdepartmentId) {
+      fetchData()
+    }
+  }, [location.pathname, structureId, subdepartmentId, fetchData])
 
   const handleBackClick = () => {
     navigate(`/duty-structures/${structureId}/subdepartments`)
@@ -90,8 +92,15 @@ const DutyTypesByDepartmentPage: React.FC = () => {
   }
 
   const handleEditClick = (dutyType: DutyType) => {
-    setDutyTypeToEdit(dutyType)
-    setIsEditModalOpen(true)
+    if (dutyType.duty_category === 'academic') {
+      // Для академических нарядов открываем календарь
+      setDutyTypeToEdit(dutyType)
+      setIsCalendarModalOpen(true)
+    } else {
+      // Для обычных нарядов открываем стандартное редактирование
+      setDutyTypeToEdit(dutyType)
+      setIsEditModalOpen(true)
+    }
   }
 
   const handleEditSuccess = (updatedDutyType: DutyType) => {
@@ -127,20 +136,6 @@ const DutyTypesByDepartmentPage: React.FC = () => {
     setDutyTypeToDelete(null)
   }
 
-  const statusOptions = [
-    { value: 'НЛ', label: 'НЛ', color: 'bg-green-100 text-green-800' },
-    { value: 'Б', label: 'Б', color: 'bg-red-100 text-red-800' },
-    { value: 'К', label: 'К', color: 'bg-blue-100 text-blue-800' },
-    { value: 'НВ', label: 'НВ', color: 'bg-purple-100 text-purple-800' },
-    { value: 'НГ', label: 'НГ', color: 'bg-orange-100 text-orange-800' },
-    { value: 'О', label: 'О', color: 'bg-yellow-100 text-yellow-800' },
-  ]
-
-  const getStatusColor = (status: string) => {
-    const statusOption = statusOptions.find(option => option.value === status)
-    return statusOption ? statusOption.color : 'bg-gray-100 text-gray-800'
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -156,6 +151,55 @@ const DutyTypesByDepartmentPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Хлебные крошки */}
+        <nav className="flex mb-6" aria-label="Breadcrumb">
+          <ol className="flex items-center space-x-2">
+            <li>
+              <button
+                onClick={() => navigate('/duty-structures')}
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                Наряды
+              </button>
+            </li>
+            <li className="text-gray-400">{'>'}</li>
+            <li>
+              <button
+                onClick={() => navigate('/duty-structures')}
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                Структуры
+              </button>
+            </li>
+            <li className="text-gray-400">{'>'}</li>
+            <li>
+              <button
+                onClick={handleBackClick}
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                {structure?.name}
+              </button>
+            </li>
+            <li className="text-gray-400">{'>'}</li>
+            <li>
+              <span className="text-sm font-medium text-gray-900">
+                {department?.name}
+              </span>
+            </li>
+          </ol>
+        </nav>
+
+        {/* Кнопка назад */}
+        <div className="mb-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <ArrowLeftIcon className="h-4 w-4 mr-2" />
+            Назад
+          </button>
+        </div>
+
         {/* Заголовок */}
         <div className="sm:flex sm:items-center">
           <div className="sm:flex-auto">
@@ -166,58 +210,33 @@ const DutyTypesByDepartmentPage: React.FC = () => {
               Управление типами нарядов для подразделения {department?.name}
             </p>
           </div>
-          <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+          <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none flex space-x-3">
+            <button
+              type="button"
+              onClick={() => navigate(`/duty-structures/${structureId}/subdepartments/${subdepartmentId}/employees`)}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <UserIcon className="h-4 w-4 mr-2" />
+              Просмотр сотрудников
+            </button>
             <button
               type="button"
               onClick={() => setIsAddModalOpen(true)}
-              className="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              <PlusIcon className="h-4 w-4 inline mr-2" />
-              Добавить тип наряда
+              <PlusIcon className="h-4 w-4 mr-2" />
+              Добавить наряд по подразделению
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsAcademicModalOpen(true)}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            >
+              <PlusIcon className="h-4 w-4 mr-2" />
+              Добавить академический наряд
             </button>
           </div>
         </div>
-
-        {/* Хлебные крошки */}
-        <nav className="flex mt-4" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
-            <li>
-              <div className="flex items-center">
-                <span className="text-sm font-medium text-gray-500">Наряды</span>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <button
-                  onClick={() => navigate('/duty-structures')}
-                  className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Структуры
-                </button>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <button
-                  onClick={handleBackClick}
-                  className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  {structure?.name}
-                </button>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <span className="ml-4 text-sm font-medium text-gray-900">
-                  {department?.name}
-                </span>
-              </div>
-            </li>
-          </ol>
-        </nav>
 
         {/* Ошибка */}
         {error && (
@@ -235,51 +254,7 @@ const DutyTypesByDepartmentPage: React.FC = () => {
           </div>
         )}
 
-        {/* Секция сотрудников с статусами */}
-        <div className="mt-8">
-          <div className="bg-white shadow overflow-hidden sm:rounded-md">
-            <div className="px-4 py-5 sm:px-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Сотрудники подразделения
-              </h3>
-              <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                Статусы сотрудников из раздела "Расход личного состава"
-              </p>
-            </div>
-            <ul className="divide-y divide-gray-200">
-              {employees.length === 0 ? (
-                <li className="px-6 py-4 text-center text-sm text-gray-500">
-                  В этом подразделении нет сотрудников
-                </li>
-              ) : (
-                employees.map((employee) => (
-                  <li key={employee.id}>
-                    <div className="px-4 py-4 sm:px-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <UserIcon className="h-6 w-6 text-gray-400 mr-3" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {employee.last_name} {employee.first_name} {employee.middle_name}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {employee.position}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(employee.status)}`}>
-                            {employee.status}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
-                ))
-              )}
-            </ul>
-          </div>
-        </div>
+        {/* Убираем секцию сотрудников - она не нужна в разделе "Наряды" */}
 
         {/* Таблица типов нарядов */}
         <div className="mt-8 flow-root">
@@ -315,7 +290,11 @@ const DutyTypesByDepartmentPage: React.FC = () => {
                       </tr>
                     ) : (
                       dutyTypes.map((dutyType) => (
-                        <tr key={dutyType.id}>
+                        <tr 
+                          key={dutyType.id}
+                          className="hover:bg-gray-50 cursor-pointer"
+                          onClick={() => navigate(`/duty-structures/${structureId}/subdepartments/${subdepartmentId}/duty-types/${dutyType.id}/employees`)}
+                        >
                           <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
                             {dutyType.name}
                           </td>
@@ -339,14 +318,28 @@ const DutyTypesByDepartmentPage: React.FC = () => {
                           <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                             <div className="flex justify-end space-x-2">
                               <button
-                                onClick={() => handleEditClick(dutyType)}
-                                className="text-indigo-600 hover:text-indigo-900"
-                                title="Редактировать тип наряда"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleEditClick(dutyType)
+                                }}
+                                className={`hover:text-gray-900 ${
+                                  dutyType.duty_category === 'academic' 
+                                    ? 'text-purple-600 hover:text-purple-900' 
+                                    : 'text-indigo-600 hover:text-indigo-900'
+                                }`}
+                                title={dutyType.duty_category === 'academic' ? 'Расписание дежурств' : 'Редактировать тип наряда'}
                               >
-                                <PencilIcon className="h-4 w-4" />
+                                {dutyType.duty_category === 'academic' ? (
+                                  <CalendarIcon className="h-4 w-4" />
+                                ) : (
+                                  <PencilIcon className="h-4 w-4" />
+                                )}
                               </button>
                               <button
-                                onClick={() => handleDeleteClick(dutyType)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteClick(dutyType)
+                                }}
                                 className="text-red-600 hover:text-red-900"
                                 title="Удалить тип наряда"
                               >
@@ -393,6 +386,26 @@ const DutyTypesByDepartmentPage: React.FC = () => {
         message="Вы уверены, что хотите удалить тип наряда из этого подразделения? Тип наряда останется доступным в других подразделениях."
         itemName={dutyTypeToDelete?.name || ''}
         loading={deleteLoading}
+      />
+
+      {/* Модальное окно добавления академического наряда */}
+      <AcademicDutyTypeModal
+        isOpen={isAcademicModalOpen}
+        onClose={() => setIsAcademicModalOpen(false)}
+        onSuccess={handleAddSuccess}
+        departmentId={subdepartmentId ? parseInt(subdepartmentId) : undefined}
+      />
+
+      {/* Модальное окно календаря для академических нарядов */}
+      <AcademicDutyCalendarModal
+        isOpen={isCalendarModalOpen}
+        onClose={() => {
+          setIsCalendarModalOpen(false)
+          setDutyTypeToEdit(null)
+        }}
+        dutyType={dutyTypeToEdit}
+        departmentId={subdepartmentId ? parseInt(subdepartmentId) : undefined}
+        onUpdate={handleAddSuccess}
       />
     </div>
   )

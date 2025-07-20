@@ -185,44 +185,40 @@ const PersonnelExpenseGroupEmployeesPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
         <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
+          <ol className="flex items-center space-x-2">
             <li>
-              <div className="flex items-center">
-                <button
-                  onClick={() => navigate('/personnel-expense')}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Расход личного состава
-                </button>
-              </div>
+              <button
+                onClick={() => navigate('/personnel-expense')}
+                className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                Главная
+              </button>
             </li>
+            <li className="text-gray-400">{'>'}</li>
             <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <button
-                  onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments`)}
-                  className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  {structure?.name}
-                </button>
-              </div>
+              <button
+                onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments`)}
+                className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                Структуры
+              </button>
             </li>
+            <li className="text-gray-400">{'>'}</li>
             <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <button
-                  onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments/${departmentId}/groups`)}
-                  className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  {department?.name}
-                </button>
-              </div>
+              <button
+                onClick={() => navigate(`/departments/${structureId}/subdepartments/${departmentId}`)}
+                className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                {structure?.name}
+              </button>
             </li>
+            <li className="text-gray-400">{'>'}</li>
             <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <span className="ml-4 text-sm font-medium text-gray-900">{group.name}</span>
-              </div>
+              <span className="text-sm font-medium text-gray-900">{department?.name}</span>
+            </li>
+            <li className="text-gray-400">{'>'}</li>
+            <li>
+              <span className="text-sm font-medium text-gray-900">{group.name}</span>
             </li>
           </ol>
         </nav>
@@ -230,11 +226,11 @@ const PersonnelExpenseGroupEmployeesPage: React.FC = () => {
         {/* Кнопки навигации */}
         <div className="mb-4 flex gap-4">
           <button
-            onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments/${departmentId}/groups`)}
+            onClick={() => navigate(-1)}
             className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Назад к группам
+            Назад
           </button>
         </div>
 

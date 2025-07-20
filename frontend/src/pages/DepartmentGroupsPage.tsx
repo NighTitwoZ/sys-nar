@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { UserGroupIcon, PlusIcon, TrashIcon, PencilIcon, ArrowLeftIcon, ChevronRightIcon, UserIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 
@@ -26,6 +26,7 @@ const DepartmentGroupsPage: React.FC = () => {
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (departmentId) {
@@ -77,33 +78,27 @@ const DepartmentGroupsPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
         <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
+          <ol className="flex items-center space-x-2">
             <li>
-              <div className="flex items-center">
-                <button
-                  onClick={() => window.location.href = '/departments'}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Структуры
-                </button>
-              </div>
+              <button
+                onClick={() => navigate('/departments')}
+                className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                Главная
+              </button>
             </li>
+            <li className="text-gray-400">{'>'}</li>
             <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <button
-                  onClick={() => window.location.href = `/departments/${structureId}/subdepartments`}
-                  className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Подразделения
-                </button>
-              </div>
+              <button
+                onClick={() => navigate(`/departments/${structureId}/subdepartments`)}
+                className="text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                Структуры
+              </button>
             </li>
+            <li className="text-gray-400">{'>'}</li>
             <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <span className="ml-4 text-sm font-medium text-gray-900">{department?.name}</span>
-              </div>
+              <span className="text-sm font-medium text-gray-900">{department?.name}</span>
             </li>
           </ol>
         </nav>
@@ -111,11 +106,11 @@ const DepartmentGroupsPage: React.FC = () => {
         {/* Кнопки навигации */}
         <div className="mb-4 flex gap-4">
           <button
-            onClick={() => window.location.href = `/departments/${structureId}/subdepartments`}
+            onClick={() => navigate(-1)}
             className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Назад к подразделениям
+            Назад
           </button>
         </div>
 
@@ -168,12 +163,15 @@ const DepartmentGroupsPage: React.FC = () => {
                 </div>
 
                 <div className="mt-6">
-                  <Link
-                    to={`/departments/${structureId}/${departmentId}/groups/${group.id}/employees`}
+                  {/* The original code had Link to="/departments/${structureId}/${departmentId}/groups/${group.id}/employees" */}
+                  {/* This will cause a routing error as Link is not imported. */}
+                  {/* Assuming the intent was to navigate to the employees page. */}
+                  <button
+                    onClick={() => navigate(`/departments/${structureId}/${departmentId}/groups/${group.id}/employees`)}
                     className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
                     Просмотр сотрудников
-                  </Link>
+                  </button>
                 </div>
               </div>
             </div>

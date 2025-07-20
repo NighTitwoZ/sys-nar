@@ -51,24 +51,6 @@ async def get_duty_types(db: AsyncSession = Depends(get_db)):
     duty_types = result.scalars().all()
     return duty_types
 
-@router.get("/department/{department_id}", response_model=List[DutyTypeResponse])
-async def get_duty_types_by_department(department_id: int, db: AsyncSession = Depends(get_db)):
-    """Получить список типов нарядов для конкретного подразделения"""
-    from models.models import Employee, EmployeeDutyType
-    
-    # Получаем уникальные типы нарядов, которые назначены сотрудникам подразделения
-    result = await db.execute(
-        select(DutyType)
-        .join(EmployeeDutyType, DutyType.id == EmployeeDutyType.duty_type_id)
-        .join(Employee, EmployeeDutyType.employee_id == Employee.id)
-        .where(Employee.department_id == department_id)
-        .where(EmployeeDutyType.is_active == True)
-        .distinct()
-        .order_by(DutyType.name)
-    )
-    duty_types = result.scalars().all()
-    return duty_types
-
 @router.get("/unique", response_model=List[DutyTypeResponse])
 async def get_unique_duty_types(db: AsyncSession = Depends(get_db)):
     """Получить список уникальных типов нарядов (без дублирования)"""
@@ -79,6 +61,17 @@ async def get_unique_duty_types(db: AsyncSession = Depends(get_db)):
     )
     duty_types = result.scalars().all()
     return duty_types
+
+@router.get("/{duty_type_id}", response_model=DutyTypeResponse)
+async def get_duty_type(duty_type_id: int, db: AsyncSession = Depends(get_db)):
+    """Получить конкретный тип наряда по ID"""
+    result = await db.execute(select(DutyType).where(DutyType.id == duty_type_id))
+    duty_type = result.scalar_one_or_none()
+    
+    if not duty_type:
+        raise HTTPException(status_code=404, detail="Тип наряда не найден")
+    
+    return duty_type
 
 @router.get("/department/{department_id}", response_model=List[DutyTypeResponse])
 async def get_duty_types_by_department(department_id: int, db: AsyncSession = Depends(get_db)):
@@ -137,26 +130,56 @@ async def create_duty_type_for_department(duty_type: DutyTypeCreateForDepartment
     if not employees:
         raise HTTPException(status_code=404, detail="Подразделение не найдено или в нем нет сотрудников")
     
-    # Проверяем, существует ли уже тип наряда с таким названием
-    existing_duty_type_result = await db.execute(
-        select(DutyType).where(DutyType.name == duty_type.name)
-    )
-    existing_duty_type = existing_duty_type_result.scalar_one_or_none()
-    
-    if existing_duty_type:
-        # Если тип наряда уже существует, используем его
-        db_duty_type = existing_duty_type
-    else:
-        # Создаем новый тип наряда
-        db_duty_type = DutyType(
-            name=duty_type.name,
-            description=duty_type.description,
-            duty_category=duty_type.duty_category,
-            people_per_day=duty_type.people_per_day
+    # Для нарядов "По подразделению" всегда создаем новый наряд для подразделения
+    if duty_type.duty_category == 'department':
+        # Проверяем, существует ли уже такой наряд в этом подразделении
+        existing_duty_type_result = await db.execute(
+            select(DutyType)
+            .join(EmployeeDutyType, DutyType.id == EmployeeDutyType.duty_type_id)
+            .join(Employee, EmployeeDutyType.employee_id == Employee.id)
+            .where(
+                DutyType.name == duty_type.name,
+                DutyType.duty_category == 'department',
+                Employee.department_id == duty_type.department_id
+            )
         )
-        db.add(db_duty_type)
-        await db.commit()
-        await db.refresh(db_duty_type)
+        existing_duty_type = existing_duty_type_result.scalar_one_or_none()
+        
+        if existing_duty_type:
+            # Если наряд уже существует в этом подразделении, используем его
+            db_duty_type = existing_duty_type
+        else:
+            # Создаем новый наряд для подразделения (всегда новый, независимо от других подразделений)
+            db_duty_type = DutyType(
+                name=duty_type.name,
+                description=duty_type.description,
+                duty_category=duty_type.duty_category,
+                people_per_day=duty_type.people_per_day
+            )
+            db.add(db_duty_type)
+            await db.commit()
+            await db.refresh(db_duty_type)
+    else:
+        # Для академических нарядов проверяем только по названию
+        existing_duty_type_result = await db.execute(
+            select(DutyType).where(DutyType.name == duty_type.name)
+        )
+        existing_duty_type = existing_duty_type_result.scalar_one_or_none()
+        
+        if existing_duty_type:
+            # Если тип наряда уже существует, используем его
+            db_duty_type = existing_duty_type
+        else:
+            # Создаем новый тип наряда
+            db_duty_type = DutyType(
+                name=duty_type.name,
+                description=duty_type.description,
+                duty_category=duty_type.duty_category,
+                people_per_day=duty_type.people_per_day
+            )
+            db.add(db_duty_type)
+            await db.commit()
+            await db.refresh(db_duty_type)
     
     # Проверяем, не назначен ли уже этот тип наряда сотрудникам подразделения
     employee_ids = [emp.id for emp in employees]

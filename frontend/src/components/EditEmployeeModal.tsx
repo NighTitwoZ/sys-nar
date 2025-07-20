@@ -9,7 +9,13 @@ interface Employee {
   middle_name: string
   position: string
   rank?: string
-  status: string
+  group_id?: number
+}
+
+interface Group {
+  id: number
+  name: string
+  description?: string
 }
 
 interface EditEmployeeModalProps {
@@ -17,22 +23,26 @@ interface EditEmployeeModalProps {
   onClose: () => void
   onSuccess: () => void
   employee: Employee | null
+  departmentId?: number
 }
 
 const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  employee
+  employee,
+  departmentId
 }) => {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [middleName, setMiddleName] = useState('')
   const [position, setPosition] = useState('')
   const [rank, setRank] = useState('')
-  const [status, setStatus] = useState('')
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null)
+  const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [groupsLoaded, setGroupsLoaded] = useState(false)
 
   useEffect(() => {
     if (employee) {
@@ -41,9 +51,39 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
       setMiddleName(employee.middle_name)
       setPosition(employee.position)
       setRank(employee.rank || '')
-      setStatus(employee.status)
+      setSelectedGroupId(employee.group_id || null)
     }
   }, [employee])
+
+  useEffect(() => {
+    if (isOpen && departmentId) {
+      fetchGroups()
+    }
+  }, [isOpen, departmentId])
+
+  const fetchGroups = async () => {
+    try {
+      console.log('Fetching groups for department:', departmentId)
+      setGroupsLoaded(false)
+      
+      if (departmentId) {
+        // Получаем группы подразделения
+        const groupsResponse = await api.get(`/groups?department_id=${departmentId}`)
+        console.log('Groups response:', groupsResponse.data)
+        setGroups(groupsResponse.data)
+        setGroupsLoaded(true)
+      } else {
+        console.log('No departmentId provided')
+        setGroups([])
+        setGroupsLoaded(true)
+      }
+    } catch (err: any) {
+      console.error('Error fetching groups:', err)
+      console.error('Error details:', err.response?.data)
+      setError('Ошибка при загрузке групп')
+      setGroupsLoaded(true)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,22 +98,38 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
       return
     }
 
+    if (!departmentId) {
+      setError('ID подразделения не указан')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
-    try {
-      await api.put(`/employees/${employee.id}`, {
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        middle_name: middleName.trim(),
-        position: position.trim(),
-        rank: rank.trim() || null,
-        status: status
-      })
+    const updateData = {
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      middle_name: middleName.trim(),
+      position: position.trim(),
+      rank: rank.trim() || null,
+      department_id: departmentId,
+      group_id: selectedGroupId,
+      status: employee.status // сохраняем текущий статус
+    }
 
+    console.log('Updating employee:', employee.id)
+    console.log('Update data:', updateData)
+
+    try {
+      const response = await api.put(`/employees/${employee.id}`, updateData)
+      console.log('Update response:', response.data)
       onSuccess()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Ошибка при обновлении сотрудника')
+      console.error('Error updating employee:', err)
+      console.error('Error status:', err.response?.status)
+      console.error('Error data:', err.response?.data)
+      console.error('Error message:', err.message)
+      setError(err.response?.data?.detail || err.message || 'Ошибка при обновлении сотрудника')
     } finally {
       setLoading(false)
     }
@@ -82,18 +138,11 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
   const handleClose = () => {
     if (!loading) {
       setError(null)
+      setGroups([])
+      setGroupsLoaded(false)
       onClose()
     }
   }
-
-  const statusOptions = [
-    { value: 'НЛ', label: 'НЛ' },
-    { value: 'Б', label: 'Б' },
-    { value: 'К', label: 'К' },
-    { value: 'НВ', label: 'НВ' },
-    { value: 'НГ', label: 'НГ' },
-    { value: 'О', label: 'О' },
-  ]
 
   if (!isOpen || !employee) return null
 
@@ -189,21 +238,28 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
             </div>
 
             <div className="mb-6">
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                Статус
+              <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-1">
+                Группа
               </label>
               <select
-                id="status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                id="group"
+                value={selectedGroupId || ''}
+                onChange={(e) => setSelectedGroupId(e.target.value ? Number(e.target.value) : null)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                disabled={loading}
+                disabled={loading || !groupsLoaded}
               >
-                {statusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
+                {!groupsLoaded ? (
+                  <option value="">Загрузка групп...</option>
+                ) : (
+                  <>
+                    <option value="">Без группы</option>
+                    {groups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
             </div>
 

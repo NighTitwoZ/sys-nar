@@ -69,11 +69,23 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
       // Завершаем диапазон
       if (clickedDate >= dateRange.startDate) {
         onDateRangeChange({ startDate: dateRange.startDate, endDate: clickedDate });
+        // Закрываем календарь при выборе второй даты
+        setIsOpen(false);
       } else {
         // Если выбранная дата раньше начальной, меняем местами
         onDateRangeChange({ startDate: clickedDate, endDate: dateRange.startDate });
+        // Закрываем календарь при выборе второй даты
+        setIsOpen(false);
       }
     }
+  };
+
+  // Функция для выбора всего месяца
+  const selectEntireMonth = () => {
+    const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+    onDateRangeChange({ startDate: firstDay, endDate: lastDay });
+    setIsOpen(false);
   };
 
   const previousMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
@@ -167,16 +179,24 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
               {renderCalendar()}
             </div>
             
-            {dateRange.startDate && (
-              <div className="mt-3 pt-3 border-t border-gray-200">
-                <button
-                  onClick={() => onDateRangeChange({ startDate: null, endDate: null })}
-                  className="w-full px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
-                >
-                  Очистить выбор
-                </button>
-              </div>
-            )}
+            {/* Кнопки управления */}
+            <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+              {/* Кнопка выбора всего месяца */}
+              <button
+                onClick={selectEntireMonth}
+                className="w-full px-3 py-2 text-sm bg-indigo-600 text-white hover:bg-indigo-700 rounded-md transition-colors"
+              >
+                Выбрать весь месяц
+              </button>
+              
+              {/* Кнопка очистки */}
+              <button
+                onClick={() => onDateRangeChange({ startDate: null, endDate: null })}
+                className="w-full px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
+              >
+                Очистить выбор
+              </button>
+            </div>
           </div>
         </div>
       )}
