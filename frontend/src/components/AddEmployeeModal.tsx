@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
+import { MILITARY_RANKS } from '../constants/ranks'
 
 interface AddEmployeeModalProps {
   isOpen: boolean
@@ -21,6 +22,7 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({
   const [lastName, setLastName] = useState('')
   const [middleName, setMiddleName] = useState('')
   const [position, setPosition] = useState('')
+  const [rank, setRank] = useState('')
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<number>(departmentId || 0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,6 +51,7 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({
         last_name: lastName.trim(),
         middle_name: middleName.trim() || null,
         position: position.trim(),
+        rank: rank.trim() || null,
         department_id: selectedDepartmentId
       }
 
@@ -82,6 +85,7 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({
       setLastName('')
       setMiddleName('')
       setPosition('')
+      setRank('')
       setSelectedDepartmentId(departmentId || 0)
       setError(null)
       onClose()
@@ -185,6 +189,27 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({
                   placeholder="Введите должность"
                   disabled={loading}
                 />
+              </div>
+
+              {/* Звание */}
+              <div>
+                <label htmlFor="rank" className="block text-sm font-medium text-gray-700">
+                  Звание
+                </label>
+                <select
+                  id="rank"
+                  value={rank}
+                  onChange={(e) => setRank(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  disabled={loading}
+                >
+                  <option value="">Выберите звание</option>
+                  {MILITARY_RANKS.map((rankOption) => (
+                    <option key={rankOption} value={rankOption}>
+                      {rankOption}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Ошибка */}

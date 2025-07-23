@@ -73,18 +73,20 @@ async def get_departments_with_stats(db: AsyncSession = Depends(get_db)):
         duty_types_count = 0
         people_per_day_total = 0
         if subdepartment_ids:
-            # Получаем уникальные типы нарядов в структуре
-            duty_types_result = await db.execute(
-                select(DutyType.id, DutyType.people_per_day)
-                .join(EmployeeDutyType, DutyType.id == EmployeeDutyType.duty_type_id)
-                .join(Employee, EmployeeDutyType.employee_id == Employee.id)
-                .where(Employee.department_id.in_(subdepartment_ids))
-                .where(EmployeeDutyType.is_active == True)
-                .distinct()
-            )
-            duty_types_data = duty_types_result.all()
-            duty_types_count = len(duty_types_data)
-            people_per_day_total = sum(dt.people_per_day for dt in duty_types_data)
+            # Получаем статистику по каждому подразделению
+            for subdept_id in subdepartment_ids:
+                # Подсчитываем количество типов нарядов в подразделении
+                subdept_duty_types_result = await db.execute(
+                    select(DutyType.id, DutyType.people_per_day)
+                    .join(EmployeeDutyType, DutyType.id == EmployeeDutyType.duty_type_id)
+                    .join(Employee, EmployeeDutyType.employee_id == Employee.id)
+                    .where(Employee.department_id == subdept_id)
+                    .where(EmployeeDutyType.is_active == True)
+                    .distinct()
+                )
+                subdept_duty_types_data = subdept_duty_types_result.all()
+                duty_types_count += len(subdept_duty_types_data)
+                people_per_day_total += sum(dt.people_per_day for dt in subdept_duty_types_data)
         
         response.append({
             "id": structure.id,

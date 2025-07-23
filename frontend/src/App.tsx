@@ -23,7 +23,10 @@ import PersonnelExpenseEmployeesPage from './pages/PersonnelExpenseEmployeesPage
 import PersonnelExpenseGroupsPage from './pages/PersonnelExpenseGroupsPage'
 import PersonnelExpenseGroupEmployeesPage from './pages/PersonnelExpenseGroupEmployeesPage'
 import PersonnelExpenseStructureEmployeesPage from './pages/PersonnelExpenseStructureEmployeesPage'
+import PersonnelExpenseStructureReportPage from './pages/PersonnelExpenseStructureReportPage'
+import PersonnelExpenseDepartmentReportPage from './pages/PersonnelExpenseDepartmentReportPage'
 import DutyDepartmentEmployeesPage from './pages/DutyDepartmentEmployeesPage'
+import PersonnelReportPage from './pages/PersonnelReportPage'
 
 function App() {
   const location = useLocation()
@@ -48,11 +51,14 @@ function App() {
         <Route path="/duty-structures/:structureId/subdepartments/:subdepartmentId/employees" element={<DutyDepartmentEmployeesPage key={location.pathname} />} />
         <Route path="/duty-structures/:structureId/employees" element={<DutyStructureEmployeesPage key={location.pathname} />} />
         <Route path="/personnel-expense" element={<PersonnelExpensePage />} />
+        <Route path="/personnel-expense/report" element={<PersonnelReportPage />} />
         <Route path="/personnel-expense/:structureId/subdepartments" element={<PersonnelExpenseSubdepartmentsPage />} />
         <Route path="/personnel-expense/:structureId/subdepartments/:departmentId/groups" element={<PersonnelExpenseGroupsPage key={location.pathname} />} />
+        <Route path="/personnel-expense/:structureId/subdepartments/:departmentId/report" element={<PersonnelExpenseDepartmentReportPage />} />
         <Route path="/personnel-expense/:structureId/subdepartments/:departmentId/groups/:groupId/employees" element={<PersonnelExpenseGroupEmployeesPage />} />
         <Route path="/personnel-expense/:structureId/subdepartments/:departmentId/employees" element={<PersonnelExpenseEmployeesPage />} />
         <Route path="/personnel-expense/:structureId/employees/status/:status" element={<PersonnelExpenseStructureEmployeesPage />} />
+        <Route path="/personnel-expense/:structureId/report" element={<PersonnelExpenseStructureReportPage />} />
       </Routes>
     </Layout>
   )

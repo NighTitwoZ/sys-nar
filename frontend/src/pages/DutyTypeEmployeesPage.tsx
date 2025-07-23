@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { ArrowLeftIcon, MagnifyingGlassIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 import { useNavigate, useParams } from 'react-router-dom'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Employee {
   id: number
@@ -14,6 +16,7 @@ interface Employee {
   group_name?: string
   is_active: boolean
   duty_types: EmployeeDutyType[]
+  rank?: string // Added rank to the interface
 }
 
 interface EmployeeDutyType {
@@ -49,6 +52,7 @@ const DutyTypeEmployeesPage: React.FC = () => {
   const [groups, setGroups] = useState<Group[]>([])
   const [dutyType, setDutyType] = useState<DutyType | null>(null)
   const [department, setDepartment] = useState<Department | null>(null)
+  const [structure, setStructure] = useState<Department | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -66,6 +70,10 @@ const DutyTypeEmployeesPage: React.FC = () => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true)
+      
+      // Получаем информацию о структуре
+      const structureResponse = await api.get(`/departments/${structureId}`)
+      setStructure(structureResponse.data)
       
       // Получаем информацию о типе наряда
       const dutyTypeResponse = await api.get(`/duty-types/${dutyTypeId}`)
@@ -235,51 +243,14 @@ const DutyTypeEmployeesPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
-        <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-2">
-            <li>
-              <button
-                onClick={() => navigate('/duty-structures')}
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-              >
-                Наряды
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <button
-                onClick={() => navigate('/duty-structures')}
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-              >
-                Структуры
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <button
-                onClick={() => navigate(`/duty-structures/${structureId}/subdepartments`)}
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-              >
-                Подразделения
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <button
-                onClick={handleBackClick}
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-              >
-                {department?.name}
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <span className="text-sm font-medium text-gray-900">
-                {dutyType?.name}
-              </span>
-            </li>
-          </ol>
-        </nav>
+        <Breadcrumbs 
+          items={[
+            { label: 'Система нарядов', path: '/duty-structures' },
+            { label: structure?.name || 'Структура', path: `/duty-structures/${structureId}/subdepartments` },
+            { label: department?.name || 'Подразделение', path: `/duty-structures/${structureId}/subdepartments/${subdepartmentId}/duty-types` },
+            { label: dutyType?.name || 'Тип наряда' }
+          ]} 
+        />
 
         {/* Кнопка назад */}
         <div className="mb-6">
@@ -425,6 +396,7 @@ const DutyTypeEmployeesPage: React.FC = () => {
                       filteredEmployees.map((employee) => (
                         <tr key={employee.id} className="hover:bg-gray-50">
                           <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                            {employee.rank && <span className="text-gray-600 mr-2">{employee.rank}</span>}
                             {employee.last_name} {employee.first_name} {employee.middle_name}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">

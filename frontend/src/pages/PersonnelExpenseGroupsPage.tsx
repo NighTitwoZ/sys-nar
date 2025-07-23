@@ -1,20 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { 
-  UserGroupIcon, 
-  ChevronRightIcon,
-  ArrowLeftIcon,
   UserIcon,
   ExclamationTriangleIcon,
-  PlusIcon,
-  PencilIcon,
-  TrashIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 import StatusDetailsModal from '../components/StatusDetailsModal'
-import CreateGroupModal from '../components/CreateGroupModal'
-import EditGroupModal from '../components/EditGroupModal'
+import NotificationModal from '../components/NotificationModal'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Structure {
   id: number
@@ -50,6 +45,7 @@ interface Employee {
   status_updated_at?: string
   status_start_date?: string
   status_notes?: string
+  group_id?: number
 }
 
 const PersonnelExpenseGroupsPage: React.FC = () => {
@@ -58,7 +54,6 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
   const location = useLocation()
   const [structure, setStructure] = useState<Structure | null>(null)
   const [department, setDepartment] = useState<Department | null>(null)
-  const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -66,20 +61,27 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [pendingChanges, setPendingChanges] = useState<{ [key: number]: string }>({})
   const [saving, setSaving] = useState(false)
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [selectedGroupForEdit, setSelectedGroupForEdit] = useState<Group | null>(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('Все') // Новое состояние для фильтрации по статусу
+  const [groups, setGroups] = useState<Group[]>([])
+  const [selectedGroup, setSelectedGroup] = useState<string>('all') // Фильтрация по группам
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error' | 'info' | 'warning'
+    message: string
+    show: boolean
+  }>({
+    type: 'info',
+    message: '',
+    show: false,
+  })
 
   const fetchData = useCallback(async () => {
     if (structureId && departmentId) {
       fetchStructure()
       fetchDepartment()
       fetchGroups()
-      if (departmentId) {
-        fetchEmployees()
-      }
+      fetchEmployees()
     }
   }, [structureId, departmentId])
 
@@ -130,14 +132,11 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
 
   const fetchGroups = async () => {
     try {
-      setLoading(true)
-      const response = await api.get(`/groups?department_id=${departmentId}`)
+      const response = await api.get(`/groups/department/${departmentId}`)
+      console.log('Loaded groups:', response.data)
       setGroups(response.data)
     } catch (err) {
-      setError('Ошибка загрузки групп')
       console.error('Error fetching groups:', err)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -146,9 +145,12 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
       // Добавляем уникальный параметр времени для обхода кэширования
       const timestamp = Date.now()
       const response = await api.get(`/employees/department/${departmentId}/with-status?_t=${timestamp}`)
+      console.log('Loaded employees:', response.data)
       setEmployees(response.data)
     } catch (err) {
       // не критично
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -157,11 +159,16 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
       ...prev,
       [employeeId]: status
     }))
+    setHasUnsavedChanges(true)
   }
 
   const saveChanges = async () => {
     if (Object.keys(pendingChanges).length === 0) {
-      alert('Нет изменений для сохранения')
+      setNotification({
+        type: 'warning',
+        message: 'Нет изменений для сохранения',
+        show: true
+      })
       return
     }
 
@@ -178,12 +185,21 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
       ))
       
       setPendingChanges({})
+      setHasUnsavedChanges(false)
       
-      alert('Изменения сохранены успешно!')
+      setNotification({
+        type: 'success',
+        message: 'Изменения сохранены успешно!',
+        show: true
+      })
     } catch (err) {
       setError('Ошибка сохранения изменений')
       console.error('Error saving changes:', err)
-      alert('Ошибка при сохранении изменений')
+      setNotification({
+        type: 'error',
+        message: 'Ошибка при сохранении изменений',
+        show: true
+      })
     } finally {
       setSaving(false)
     }
@@ -204,40 +220,6 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
     { value: 'О', label: 'О', color: 'bg-yellow-100 text-yellow-800', title: 'Отпуск' },
   ]
 
-  const handleCreateGroup = () => {
-    setIsCreateModalOpen(true)
-  }
-
-  const handleEditGroup = (group: Group) => {
-    setSelectedGroupForEdit(group)
-    setIsEditModalOpen(true)
-  }
-
-  const handleDeleteGroup = async (groupId: number) => {
-    if (window.confirm('Вы уверены, что хотите удалить эту группу?')) {
-      try {
-        await api.delete(`/groups/${groupId}`)
-        // Обновляем список групп
-        fetchGroups()
-        alert('Группа успешно удалена!')
-      } catch (err) {
-        console.error('Error deleting group:', err)
-        alert('Ошибка при удалении группы')
-      }
-    }
-  }
-
-  const handleGroupCreated = () => {
-    setIsCreateModalOpen(false)
-    fetchGroups()
-  }
-
-  const handleGroupUpdated = () => {
-    setIsEditModalOpen(false)
-    setSelectedGroupForEdit(null)
-    fetchGroups()
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -255,7 +237,7 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
       <div className="text-center">
         <div className="text-red-600 text-lg">{error || 'Подразделение не найдено'}</div>
         <button
-          onClick={fetchGroups}
+          onClick={fetchEmployees}
           className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-500"
         >
           Попробовать снова
@@ -270,62 +252,44 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
     
     const matchesStatus = statusFilter === 'Все' || employee.status === statusFilter
     
-    return matchesSearch && matchesStatus
+    const matchesGroup = selectedGroup === 'all' || employee.group_id?.toString() === selectedGroup
+    
+    // Отладочная информация
+    if (selectedGroup !== 'all') {
+      console.log(`Employee ${employee.last_name} ${employee.first_name}: group_id=${employee.group_id}, selectedGroup=${selectedGroup}, matchesGroup=${matchesGroup}`)
+    }
+    
+    return matchesSearch && matchesStatus && matchesGroup
   })
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
-        <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-2">
-            <li>
-              <button
-                onClick={() => navigate('/personnel-expense')}
-                className="text-sm font-medium text-gray-500 hover:text-gray-700"
-              >
-                Главная
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <button
-                onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments`)}
-                className="text-sm font-medium text-gray-500 hover:text-gray-700"
-              >
-                Структуры
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <span className="text-sm font-medium text-gray-900">{structure?.name}</span>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <span className="text-sm font-medium text-gray-900">{department.name}</span>
-            </li>
-          </ol>
-        </nav>
+        <Breadcrumbs 
+          items={[
+            { label: 'Расход личного состава', path: '/personnel-expense' },
+            { label: structure?.name || 'Структура', path: `/personnel-expense/${structureId}/subdepartments` },
+            { label: department?.name || 'Подразделение' }
+          ]} 
+        />
 
-        {/* Кнопки навигации */}
-        <div className="mb-4 flex gap-4">
+        {/* Кнопка назад */}
+        <div className="mb-4 flex justify-between items-center">
+          <div className="flex gap-4">
+            <button
+              onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments`)}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              <ArrowLeftIcon className="h-4 w-4 mr-2" />
+              Назад
+            </button>
+          </div>
           <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments/${departmentId}/report`)}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
-            <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Назад
-          </button>
-          <button
-            onClick={saveChanges}
-            disabled={!hasChanges || saving}
-            className={`inline-flex items-center px-4 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-              hasChanges && !saving
-                ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                : 'bg-gray-400 cursor-not-allowed'
-            }`}
-          >
-            {saving ? 'Сохранение...' : 'Сохранить'}
+            Строевая записка
           </button>
         </div>
 
@@ -337,112 +301,68 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
           )}
         </div>
 
-        {/* Список групп */}
-        <div className="sm:flex sm:items-center sm:justify-between">
-          <div className="sm:flex-auto">
-            <h2 className="text-lg font-semibold leading-6 text-gray-900">
-              Группы подразделения
-            </h2>
-            <p className="mt-2 text-sm text-gray-700">
-              Выберите группу для управления статусами сотрудников
-            </p>
-          </div>
-          <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-            <button
-              onClick={handleCreateGroup}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <PlusIcon className="h-4 w-4 mr-2" />
-              Создать группу
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {groups.map((group) => (
-            <div
-              key={group.id}
-              className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-200"
-            >
-              <div className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <UserGroupIcon className="h-8 w-8 text-indigo-600" />
-                  </div>
-                  <div className="ml-4 flex-1">
-                    <h3 className="text-lg font-medium text-gray-900">{group.name}</h3>
-                    {group.description && (
-                      <p className="text-sm text-gray-500 mt-1">{group.description}</p>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="mt-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center text-sm text-gray-500">
-                      <UserIcon className="h-4 w-4 mr-1" />
-                      {group.employee_count} сотрудников
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex space-x-2">
-                  <button
-                    onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments/${departmentId}/groups/${group.id}/employees`)}
-                    className="flex-1 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Управление сотрудниками
-                  </button>
-                  <button
-                    onClick={() => handleEditGroup(group)}
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    title="Изменить группу"
-                  >
-                    <PencilIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteGroup(group.id)}
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                    title="Удалить группу"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
+        {/* Ошибка */}
+        {error && (
+          <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">
+                  Ошибка загрузки
+                </h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{error}</p>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-
-        {groups.length === 0 && (
-          <div className="text-center py-12">
-            <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-semibold text-gray-900">Нет групп</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              В этом подразделении пока нет групп.
-            </p>
           </div>
         )}
 
-        {/* Поиск сотрудников */}
+        {/* Поиск и фильтры */}
         {employees.length > 0 && (
           <div className="bg-white shadow rounded-lg p-6 mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Поиск сотрудников</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Поиск и фильтрация сотрудников</h3>
               <div className="text-sm text-gray-500">
                 Найдено: {filteredEmployees.length} из {employees.length}
               </div>
             </div>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
+                  Поиск по ФИО
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    id="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="Введите ФИО сотрудника..."
+                  />
+                </div>
               </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="Поиск по ФИО сотрудника..."
-              />
+              <div>
+                <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-2">
+                  Фильтр по группе
+                </label>
+                <select
+                  id="group"
+                  value={selectedGroup}
+                  onChange={(e) => setSelectedGroup(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                  <option value="all">Все группы</option>
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.id.toString()}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         )}
@@ -540,10 +460,10 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <span className="font-medium text-gray-900">
+                          {employee.rank && <span className="text-gray-600 mr-2">{employee.rank}</span>}
                           {employee.last_name} {employee.first_name} {employee.middle_name}
                         </span>
                         <p className="text-sm text-gray-500">{employee.position}</p>
-                        {employee.rank && <p className="text-sm text-gray-500">{employee.rank}</p>}
                         {employee.status !== 'НЛ' && employee.status_updated_at && (
                           <p className="text-sm text-gray-500">
                             Статус изменен: {new Date(employee.status_updated_at).toLocaleString('ru-RU', {
@@ -639,24 +559,44 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
         }}
         employee={selectedEmployee}
       />
-      
-      {/* Модальное окно создания группы */}
-      <CreateGroupModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={handleGroupCreated}
-        departmentId={parseInt(departmentId || '0')}
-      />
 
-      {/* Модальное окно редактирования группы */}
-      <EditGroupModal
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false)
-          setSelectedGroupForEdit(null)
-        }}
-        onSuccess={handleGroupUpdated}
-        group={selectedGroupForEdit}
+      {/* Динамическое окно сохранения изменений */}
+      {hasUnsavedChanges && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-white border border-gray-300 rounded-lg shadow-lg px-6 py-4 flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+              <span className="text-sm font-medium text-gray-700">
+                Есть несохраненные изменения статусов
+              </span>
+            </div>
+            <button
+              onClick={saveChanges}
+              disabled={saving}
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                saving
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'
+              }`}
+            >
+              {saving ? 'Сохранение...' : 'Сохранить'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно уведомлений */}
+      <NotificationModal
+        isOpen={notification.show}
+        onClose={() => setNotification(prev => ({ ...prev, show: false }))}
+        type={notification.type}
+        title={
+          notification.type === 'success' ? 'Успешно' :
+          notification.type === 'error' ? 'Ошибка' :
+          notification.type === 'warning' ? 'Предупреждение' :
+          'Информация'
+        }
+        message={notification.message}
       />
     </div>
   )

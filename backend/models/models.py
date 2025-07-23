@@ -43,11 +43,13 @@ class Employee(Base):
     last_name = Column(String(100), nullable=False)
     middle_name = Column(String(100), nullable=True)
     position = Column(String(255), nullable=False)
+    rank = Column(String(100), nullable=True)  # Звание сотрудника
     department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)  # Новое поле для связи с группой
     is_active = Column(Boolean, default=True)
     status = Column(String(10), nullable=False, default="НЛ")  # НЛ, Б, К, НВ, НГ, О
     status_updated_at = Column(DateTime(timezone=True), nullable=True)  # Время последнего изменения статуса
+    duty_count = Column(Integer, default=0)  # Количество нарядов, которые сотрудник уже отходил
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -73,6 +75,7 @@ class DutyType(Base):
     description = Column(Text, nullable=True)
     duty_category = Column(String(50), default="academic")  # Вид наряда: academic/division
     people_per_day = Column(Integer, default=1)  # Количество человек в сутки
+    days_duration = Column(Integer, default=1)  # Сколько дней занимает наряд
     priority = Column(Integer, default=1)  # Приоритет наряда  # MIGRATION
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

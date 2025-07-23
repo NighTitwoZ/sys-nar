@@ -24,7 +24,7 @@ const AddDepartmentModal: React.FC<AddDepartmentModalProps> = ({
     e.preventDefault()
     
     if (!name.trim()) {
-      setError('Название подразделения обязательно')
+      setError('Название структуры обязательно')
       return
     }
 
@@ -46,7 +46,7 @@ const AddDepartmentModal: React.FC<AddDepartmentModalProps> = ({
       onSuccess()
       onClose()
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Ошибка при создании подразделения')
+      setError(err.response?.data?.detail || 'Ошибка при создании структуры')
     } finally {
       setLoading(false)
     }
@@ -70,7 +70,7 @@ const AddDepartmentModal: React.FC<AddDepartmentModalProps> = ({
           {/* Заголовок */}
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900">
-              Добавить подразделение
+              Добавить структуру
             </h3>
             <button
               onClick={handleClose}
@@ -95,7 +95,7 @@ const AddDepartmentModal: React.FC<AddDepartmentModalProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  placeholder="Введите название подразделения"
+                  placeholder="Введите название структуры"
                   disabled={loading}
                 />
               </div>
@@ -111,7 +111,7 @@ const AddDepartmentModal: React.FC<AddDepartmentModalProps> = ({
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  placeholder="Введите описание подразделения (необязательно)"
+                  placeholder="Введите описание структуры (необязательно)"
                   disabled={loading}
                 />
               </div>

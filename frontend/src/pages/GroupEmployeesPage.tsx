@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { UserIcon, PlusIcon, TrashIcon, PencilIcon, ArrowLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import React, { useState, useEffect, useCallback } from 'react'
+import { ChevronRightIcon, ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon, UserIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import AddEmployeeModal from '../components/AddEmployeeModal'
 import EditEmployeeModal from '../components/EditEmployeeModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Employee {
   id: number
@@ -156,50 +157,16 @@ const GroupEmployeesPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
-        <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
-            <li>
-              <div className="flex items-center">
-                <button
-                  onClick={() => navigate('/departments')}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Структуры
-                </button>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <button
-                  onClick={() => navigate(`/departments/${structureId}/subdepartments`)}
-                  className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Подразделения
-                </button>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <button
-                  onClick={() => navigate(`/departments/${structureId}/${departmentId}/groups`)}
-                  className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  {department.name}
-                </button>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <span className="ml-4 text-sm font-medium text-gray-900">{group.name}</span>
-              </div>
-            </li>
-          </ol>
-        </nav>
+        <Breadcrumbs 
+          items={[
+            { label: 'Подразделения', path: '/departments' },
+            { label: department?.name || 'Подразделение', path: `/departments/${departmentId}` },
+            { label: 'Группы', path: `/departments/${departmentId}/groups` },
+            { label: group?.name || 'Группа' }
+          ]} 
+        />
 
-        {/* Кнопки навигации */}
+        {/* Кнопка назад */}
         <div className="mb-4 flex gap-4">
           <button
             onClick={() => navigate(-1)}
@@ -350,6 +317,7 @@ const GroupEmployeesPage: React.FC = () => {
           onClose={handleEditCancel}
           onSuccess={handleEditSuccess}
           employee={employeeToEdit}
+          departmentId={department?.id}
         />
 
         {/* Модальное окно подтверждения удаления */}

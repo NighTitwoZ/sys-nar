@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
+import { MILITARY_RANKS } from '../constants/ranks'
 
 interface Employee {
   id: number
@@ -226,15 +227,20 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
               <label htmlFor="rank" className="block text-sm font-medium text-gray-700 mb-1">
                 Звание
               </label>
-              <input
-                type="text"
+              <select
                 id="rank"
                 value={rank}
                 onChange={(e) => setRank(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Введите звание"
                 disabled={loading}
-              />
+              >
+                <option value="">Выберите звание</option>
+                {MILITARY_RANKS.map((rankOption) => (
+                  <option key={rankOption} value={rankOption}>
+                    {rankOption}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="mb-6">

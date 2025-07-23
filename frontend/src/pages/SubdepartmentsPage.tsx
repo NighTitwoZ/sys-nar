@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react'
-import { ChevronRightIcon, ArrowLeftIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
+import React, { useState, useEffect, useCallback } from 'react'
+import { ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 import { useNavigate, useParams } from 'react-router-dom'
 import AddDepartmentModal from '../components/AddDepartmentModal'
 import EditDepartmentModal from '../components/EditDepartmentModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Department {
   id: number
@@ -37,7 +38,7 @@ const SubdepartmentsPage: React.FC = () => {
       setLoading(true)
       const [structureResponse, subdepartmentsResponse] = await Promise.all([
         api.get(`/departments/${structureId}`),
-        api.get(`/departments/${structureId}/subdepartments`)
+        api.get(`/departments/${structureId}/subdepartments-with-stats`)
       ])
       setStructure(structureResponse.data)
       setSubdepartments(subdepartmentsResponse.data)
@@ -121,22 +122,23 @@ const SubdepartmentsPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
-        <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-2">
-            <li>
-              <button
-                onClick={handleBackClick}
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-              >
-                Структуры
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <span className="text-sm font-medium text-gray-900">{structure?.name}</span>
-            </li>
-          </ol>
-        </nav>
+        <Breadcrumbs 
+          items={[
+            { label: 'Подразделения', path: '/departments' },
+            { label: structure?.name || 'Структура' }
+          ]} 
+        />
+
+        {/* Кнопка Назад */}
+        <div className="mb-4">
+          <button
+            onClick={handleBackClick}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <ArrowLeftIcon className="h-4 w-4 mr-2" />
+            Назад
+          </button>
+        </div>
 
         {/* Заголовок */}
         <div className="sm:flex sm:items-center">
@@ -156,17 +158,6 @@ const SubdepartmentsPage: React.FC = () => {
               Добавить подразделение
             </button>
           </div>
-        </div>
-
-        {/* Кнопки навигации */}
-        <div className="mb-4">
-          <button
-            onClick={handleBackClick}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Назад
-          </button>
         </div>
 
         {/* Ошибка */}
@@ -196,9 +187,9 @@ const SubdepartmentsPage: React.FC = () => {
               ) : (
                 subdepartments.map((subdepartment) => (
                   <li key={subdepartment.id}>
-                    <button
+                    <div
                       onClick={() => handleSubdepartmentClick(subdepartment)}
-                      className="w-full block hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset"
+                      className="w-full block hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset cursor-pointer"
                     >
                       <div className="px-6 py-4 flex items-center justify-between">
                         <div className="flex items-center">
@@ -235,10 +226,9 @@ const SubdepartmentsPage: React.FC = () => {
                           >
                             <TrashIcon className="h-4 w-4" />
                           </button>
-                          <ChevronRightIcon className="h-5 w-5 text-gray-400" />
                         </div>
                       </div>
-                    </button>
+                    </div>
                   </li>
                 ))
               )}

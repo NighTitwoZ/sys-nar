@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { ChevronRightIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 import { useNavigate } from 'react-router-dom'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Department {
   id: number
@@ -53,17 +54,11 @@ const DutyStructuresPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
-        <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-2">
-            <li>
-              <span className="text-sm font-medium text-indigo-600">Наряды</span>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <span className="text-sm font-medium text-gray-900">Структуры</span>
-            </li>
-          </ol>
-        </nav>
+        <Breadcrumbs 
+          items={[
+            { label: 'Система нарядов', path: '/duty-structures' }
+          ]} 
+        />
 
         {/* Заголовок */}
         <div className="sm:flex sm:items-center">
@@ -79,7 +74,7 @@ const DutyStructuresPage: React.FC = () => {
               onClick={() => navigate('/duty-structures/all')}
               className="block rounded-md bg-green-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
             >
-              Все наряды
+              Академические наряды
             </button>
           </div>
         </div>

@@ -20,6 +20,7 @@ const AddDutyTypeModal: React.FC<AddDutyTypeModalProps> = ({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [peoplePerDay, setPeoplePerDay] = useState(1)
+  const [daysDuration, setDaysDuration] = useState(1)
   const [dutyCategory, setDutyCategory] = useState(isAcademic ? 'academic' : 'department')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,6 +28,11 @@ const AddDutyTypeModal: React.FC<AddDutyTypeModalProps> = ({
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value) || 1;
     setPeoplePerDay(value);
+  };
+
+  const handleDaysSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value) || 1;
+    setDaysDuration(value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,6 +53,7 @@ const AddDutyTypeModal: React.FC<AddDutyTypeModalProps> = ({
           name: name.trim(),
           description: description.trim() || null,
           people_per_day: peoplePerDay,
+          days_duration: daysDuration,
           duty_category: 'department', // Для подразделений всегда используем 'department'
           department_id: departmentId
         })
@@ -56,6 +63,7 @@ const AddDutyTypeModal: React.FC<AddDutyTypeModalProps> = ({
           name: name.trim(),
           description: description.trim() || null,
           people_per_day: peoplePerDay,
+          days_duration: daysDuration,
           duty_category: dutyCategory
         })
       }
@@ -64,6 +72,7 @@ const AddDutyTypeModal: React.FC<AddDutyTypeModalProps> = ({
       setName('')
       setDescription('')
       setPeoplePerDay(1)
+      setDaysDuration(1)
       setDutyCategory('academic')
       
       // Закрытие модального окна и обновление списка
@@ -81,6 +90,7 @@ const AddDutyTypeModal: React.FC<AddDutyTypeModalProps> = ({
       setName('')
       setDescription('')
       setPeoplePerDay(1)
+      setDaysDuration(1)
       setDutyCategory('academic')
       setError(null)
       onClose()
@@ -172,6 +182,32 @@ const AddDutyTypeModal: React.FC<AddDutyTypeModalProps> = ({
                 </div>
                 <p className="mt-1 text-sm text-gray-500">
                   Сколько человек заступает в этот наряд в сутки
+                </p>
+              </div>
+
+              {/* Сколько дней занимает наряд */}
+              <div>
+                <label htmlFor="daysDuration" className="block text-sm font-medium text-gray-700">
+                  Сколько дней занимает наряд: {daysDuration} *
+                </label>
+                <input
+                  type="range"
+                  id="daysDuration"
+                  value={daysDuration}
+                  onChange={handleDaysSliderChange}
+                  min="1"
+                  max="3"
+                  step="1"
+                  className="mt-1 block w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                  disabled={loading}
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>1</span>
+                  <span>2</span>
+                  <span>3</span>
+                </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  Сколько дней подряд занимает этот наряд
                 </p>
               </div>
 

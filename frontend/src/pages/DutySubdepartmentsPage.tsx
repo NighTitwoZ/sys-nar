@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { ChevronRightIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Department {
   id: number
@@ -98,33 +99,17 @@ const DutySubdepartmentsPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
-        <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-2">
-            <li>
-              <span className="text-sm font-medium text-indigo-600">Наряды</span>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <button
-                onClick={handleBackClick}
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-              >
-                Структуры
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <span className="text-sm font-medium text-gray-900">
-                {structure?.name}
-              </span>
-            </li>
-          </ol>
-        </nav>
+        <Breadcrumbs 
+          items={[
+            { label: 'Система нарядов', path: '/duty-structures' },
+            { label: structure?.name || 'Структура' }
+          ]} 
+        />
 
         {/* Кнопка назад */}
         <div className="mb-6">
           <button
-            onClick={() => navigate(-1)}
+            onClick={handleBackClick}
             className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-2" />

@@ -91,7 +91,7 @@ async def generate_duty_distribution(
                 'employees': []
             }
         duty_types_employees[duty_type.id]['employees'].append(emp)
-    
+        
     # Словарь для отслеживания занятости сотрудников по дням и типам нарядов
     # Формат: {employee_id: {date_key: {duty_type_id, ...}}}
     employee_busy_dates = {}
@@ -182,22 +182,32 @@ async def generate_duty_distribution(
                         
                         # Назначаем выбранных сотрудников
                         for selected_employee in selected_employees:
-                            if selected_employee.id not in employee_busy_dates:
-                                employee_busy_dates[selected_employee.id] = {}
-                            if date_key not in employee_busy_dates[selected_employee.id]:
-                                employee_busy_dates[selected_employee.id][date_key] = set()
-                            employee_busy_dates[selected_employee.id][date_key].add(duty_type_id)
-                            
-                            # Добавляем наряд
-                            all_duties.append({
-                                'date': date_key,
-                                'employee_id': selected_employee.id,
-                                'employee_name': f"{selected_employee.last_name} {selected_employee.first_name}",
-                                'duty_type_id': duty_type.id,
-                                'duty_type_name': duty_type.name,
-                                'people_per_day': duty_type.people_per_day,
-                                'is_from_calendar': True  # Флаг для отслеживания записей из календаря
-                            })
+                            # Блокируем сотрудника на все дни длительности наряда
+                            for day_offset in range(duty_type.days_duration):
+                                duty_day = duty_date + timedelta(days=day_offset)
+                                duty_day_key = duty_day.isoformat()
+                                
+                                # Проверяем, не выходит ли день за пределы периода
+                                if duty_day > end_date:
+                                    break
+                                
+                                if selected_employee.id not in employee_busy_dates:
+                                    employee_busy_dates[selected_employee.id] = {}
+                                if duty_day_key not in employee_busy_dates[selected_employee.id]:
+                                    employee_busy_dates[selected_employee.id][duty_day_key] = set()
+                                employee_busy_dates[selected_employee.id][duty_day_key].add(duty_type_id)
+                                
+                                # Добавляем наряд только для первого дня (начало наряда)
+                                if day_offset == 0:
+                                    all_duties.append({
+                                        'date': duty_day_key,
+                                        'employee_id': selected_employee.id,
+                                        'employee_name': f"{selected_employee.last_name} {selected_employee.first_name}",
+                                        'duty_type_id': duty_type.id,
+                                        'duty_type_name': duty_type.name,
+                                        'people_per_day': duty_type.people_per_day,
+                                        'days_duration': duty_type.days_duration
+                                    })
                             logger.debug(f"Добавлен наряд для {selected_employee.last_name} {selected_employee.first_name}")
                     
                     # Пропускаем автоматический выбор сотрудников для академических нарядов
@@ -213,21 +223,32 @@ async def generate_duty_distribution(
             
             # Назначаем выбранных сотрудников
             for selected_employee in selected_employees:
-                if selected_employee.id not in employee_busy_dates:
-                    employee_busy_dates[selected_employee.id] = {}
-                if date_key not in employee_busy_dates[selected_employee.id]:
-                    employee_busy_dates[selected_employee.id][date_key] = set()
-                employee_busy_dates[selected_employee.id][date_key].add(duty_type_id)
-                
-                # Добавляем наряд
-                all_duties.append({
-                    'date': date_key,
+                # Блокируем сотрудника на все дни длительности наряда
+                for day_offset in range(duty_type.days_duration):
+                    duty_day = duty_date + timedelta(days=day_offset)
+                    duty_day_key = duty_day.isoformat()
+                    
+                    # Проверяем, не выходит ли день за пределы периода
+                    if duty_day > end_date:
+                        break
+                    
+                    if selected_employee.id not in employee_busy_dates:
+                        employee_busy_dates[selected_employee.id] = {}
+                    if duty_day_key not in employee_busy_dates[selected_employee.id]:
+                        employee_busy_dates[selected_employee.id][duty_day_key] = set()
+                    employee_busy_dates[selected_employee.id][duty_day_key].add(duty_type_id)
+                    
+                    # Добавляем наряд только для первого дня (начало наряда)
+                    if day_offset == 0:
+                        all_duties.append({
+                            'date': duty_day_key,
                         'employee_id': selected_employee.id,
                         'employee_name': f"{selected_employee.last_name} {selected_employee.first_name}",
                         'duty_type_id': duty_type.id,
-                    'duty_type_name': duty_type.name,
-                    'people_per_day': duty_type.people_per_day
-                })
+                            'duty_type_name': duty_type.name,
+                            'people_per_day': duty_type.people_per_day,
+                            'days_duration': duty_type.days_duration
+                        })
         
         current_date += timedelta(days=1)
     
@@ -239,12 +260,18 @@ async def generate_duty_distribution(
     for dept in departments:
         # Получаем сотрудников подразделения для проверки
         dept_employees_result = await db.execute(
-            select(Employee.id).where(Employee.department_id == dept.id)
+            select(Employee.id, Employee.duty_count).where(Employee.department_id == dept.id)
         )
-        dept_employee_ids = [row[0] for row in dept_employees_result.all()]
+        dept_employees_data = dept_employees_result.all()
+        dept_employee_ids = [row[0] for row in dept_employees_data]
+        dept_employee_duty_counts = {row[0]: row[1] or 0 for row in dept_employees_data}
         
         # Фильтруем наряды для этого подразделения
         dept_duties = [d for d in all_duties if d['employee_id'] in dept_employee_ids]
+        
+        # Добавляем duty_count к каждому наряду
+        for duty in dept_duties:
+            duty['duty_count'] = dept_employee_duty_counts.get(duty['employee_id'], 0)
         
         if dept_duties:
             distribution.append({
@@ -255,32 +282,34 @@ async def generate_duty_distribution(
     
     # Сохраняем все наряды в базу
     for duty in all_duties:
-        # Проверяем, не является ли это записью из календаря
-        if duty.get('is_from_calendar', False):
-            # Для записей из календаря проверяем, не существует ли уже такая запись
+        # Получаем длительность наряда
+        duty_duration = duty.get('days_duration', 1)
+        start_date_duty = date.fromisoformat(duty['date'])
+        
+        # Создаем записи для всех дней длительности наряда
+        for day_offset in range(duty_duration):
+            duty_day = start_date_duty + timedelta(days=day_offset)
+            
+            # Проверяем, не выходит ли день за пределы периода
+            if duty_day > end_date:
+                break
+            
+            # Проверяем, не существует ли уже такая запись
             existing_record = await db.execute(
                 select(DutyRecord)
                 .where(DutyRecord.employee_id == duty['employee_id'])
                 .where(DutyRecord.duty_type_id == duty['duty_type_id'])
-                .where(DutyRecord.duty_date == date.fromisoformat(duty['date']))
+                .where(DutyRecord.duty_date == duty_day)
             )
             existing_record = existing_record.scalar_one_or_none()
             
             if not existing_record:
-                # Если записи нет, создаем новую
+                # Создаем новую запись
                 db.add(DutyRecord(
                     employee_id=duty['employee_id'],
                     duty_type_id=duty['duty_type_id'],
-                    duty_date=date.fromisoformat(duty['date'])
+                    duty_date=duty_day
                 ))
-            # Если запись уже существует, не перезаписываем её
-        else:
-            # Для обычных нарядов создаем новые записи
-            db.add(DutyRecord(
-                employee_id=duty['employee_id'],
-                duty_type_id=duty['duty_type_id'],
-                duty_date=date.fromisoformat(duty['date'])
-            ))
     
     await db.commit()
     return distribution
@@ -295,13 +324,13 @@ async def select_employees_for_duty(
     start_date: date,
     end_date: date
 ) -> List[Employee]:
-    """Выбирает сотрудников для наряда с учетом количества нарядов за период и ограничения в 3 дня"""
+    """Выбирает сотрудников для наряда с учетом количества нарядов за период и ограничения интервалов между нарядами"""
     date_key = duty_date.isoformat()
     
     # Получаем количество нарядов каждого сотрудника за выбранный период
     employee_duty_counts = {}
     employee_last_duty_dates_by_type = {}
-    employee_last_duty_dates = {}  # Последний наряд любого типа
+    employee_last_duty_info = {}  # Информация о последнем наряде (дата и длительность)
     
     for employee in employees:
         # Количество нарядов за выбранный период (из базы)
@@ -318,7 +347,10 @@ async def select_employees_for_duty(
         if employee.id in employee_busy_dates:
             for date_str in employee_busy_dates[employee.id]:
                 count_in_memory += len(employee_busy_dates[employee.id][date_str])
-        employee_duty_counts[employee.id] = count_in_db + count_in_memory
+        
+        # Общее количество нарядов = наряды в выбранном периоде + duty_count
+        total_duty_count = count_in_db + count_in_memory + (employee.duty_count or 0)
+        employee_duty_counts[employee.id] = total_duty_count
         
         # Дата последнего наряда этого типа
         last_duty_result = await db.execute(
@@ -342,25 +374,35 @@ async def select_employees_for_duty(
         last_duty_date = max(all_dates) if all_dates else None
         employee_last_duty_dates_by_type[(employee.id, duty_type_id)] = last_duty_date
         
-        # Дата последнего наряда любого типа
+        # Получаем информацию о последнем наряде любого типа (дата и длительность)
         last_any_duty_result = await db.execute(
-            select(DutyRecord.duty_date)
+            select(DutyRecord.duty_date, DutyType.days_duration)
+            .join(DutyType, DutyRecord.duty_type_id == DutyType.id)
             .where(DutyRecord.employee_id == employee.id)
             .order_by(DutyRecord.duty_date.desc())
             .limit(1)
         )
-        last_any_duty_date = last_any_duty_result.scalar_one_or_none()
+        last_any_duty_data = last_any_duty_result.first()
         
         # Учитываем наряды в памяти для любого типа
         all_any_dates = set()
-        if last_any_duty_date:
-            all_any_dates.add(last_any_duty_date)
+        last_duty_duration = 1  # По умолчанию 1 день
+        
+        if last_any_duty_data:
+            all_any_dates.add(last_any_duty_data[0])
+            last_duty_duration = last_any_duty_data[1] or 1
+        
         if employee.id in employee_busy_dates:
             for date_str in employee_busy_dates[employee.id]:
                 all_any_dates.add(date.fromisoformat(date_str))
+                # Для нарядов в памяти считаем длительность 1 день (так как это текущая сессия)
+                last_duty_duration = 1
         
         last_any_duty_date = max(all_any_dates) if all_any_dates else None
-        employee_last_duty_dates[employee.id] = last_any_duty_date
+        employee_last_duty_info[employee.id] = {
+            'date': last_any_duty_date,
+            'duration': last_duty_duration
+        }
     
     # Фильтруем доступных сотрудников
     available_employees = []
@@ -371,11 +413,19 @@ async def select_employees_for_duty(
             duty_type_id in employee_busy_dates[employee.id][date_key]):
             continue
         
-        # Проверяем ограничение в 3 дня между любыми нарядами
-        last_any_duty_date = employee_last_duty_dates[employee.id]
-        if last_any_duty_date is not None:
-            days_since_last_any = (duty_date - last_any_duty_date).days
-            if days_since_last_any < 3:  # Не меньше 3 дней между любыми нарядами
+        # Проверяем ограничение интервалов между нарядами в зависимости от длительности предыдущего наряда
+        last_duty_info = employee_last_duty_info[employee.id]
+        if last_duty_info['date'] is not None:
+            days_since_last_duty = (duty_date - last_duty_info['date']).days
+            last_duty_duration = last_duty_info['duration']
+            
+            # Вычисляем минимальный интервал в зависимости от длительности предыдущего наряда
+            # 1 день = следующий день (интервал 1 день)
+            # 2 дня = через день (интервал 2 дня)  
+            # 3 дня = через 2 дня (интервал 3 дня)
+            min_interval = last_duty_duration
+            
+            if days_since_last_duty < min_interval:
                 continue
         
         available_employees.append(employee)
@@ -383,10 +433,10 @@ async def select_employees_for_duty(
     if not available_employees:
         return []
     
-    # Сортируем по количеству нарядов (приоритет тем, у кого меньше нарядов)
+    # Сортируем по общему количеству нарядов (приоритет тем, у кого меньше нарядов)
     available_employees.sort(key=lambda emp: employee_duty_counts[emp.id])
     
-    # Выбираем сотрудников с наименьшим количеством нарядов
+    # Выбираем сотрудников с наименьшим общим количеством нарядов
     selected_employees = []
     current_count = employee_duty_counts[available_employees[0].id]
     
@@ -462,7 +512,8 @@ async def get_duty_distribution_by_department(
             'duty_type_name': duty_type.name,
             'date': duty_record.duty_date.isoformat(),
             'employee_name': f"{employee.last_name} {employee.first_name}",
-            'department_name': department.name
+            'department_name': department.name,
+            'duty_count': employee.duty_count or 0  # Добавляем duty_count
         })
     
     return distribution_data 
@@ -496,28 +547,42 @@ async def get_all_duties(
     month: int = Query(..., description="Месяц"),
     db: AsyncSession = Depends(get_db)
 ):
-    from sqlalchemy import extract
+    """Получить все наряды за месяц/год с группировкой по подразделениям"""
+    
+    # Получаем все наряды за месяц
+    start_date = date(year, month, 1)
+    if month == 12:
+        end_date = date(year + 1, 1, 1) - timedelta(days=1)
+    else:
+        end_date = date(year, month + 1, 1) - timedelta(days=1)
+    
     duty_records_result = await db.execute(
         select(DutyRecord, Employee, Department, DutyType)
         .join(Employee, DutyRecord.employee_id == Employee.id)
         .join(Department, Employee.department_id == Department.id)
         .join(DutyType, DutyRecord.duty_type_id == DutyType.id)
-        .where(extract('year', DutyRecord.duty_date) == year)
-        .where(extract('month', DutyRecord.duty_date) == month)
-        .order_by(Department.id, DutyRecord.duty_date, Employee.last_name, Employee.first_name)
+        .where(DutyRecord.duty_date >= start_date)
+        .where(DutyRecord.duty_date <= end_date)
+        .order_by(DutyRecord.duty_date, Employee.last_name, Employee.first_name)
     )
     duty_records = duty_records_result.all()
+    
+    # Формируем ответ с дополнительной информацией о duty_count
     result = []
     for duty_record, employee, department, duty_type in duty_records:
         result.append({
             'id': duty_record.id,
             'date': duty_record.duty_date.isoformat(),
+            'employee_id': employee.id,
             'employee_name': f"{employee.last_name} {employee.first_name}",
             'department_id': department.id,
             'department_name': department.name,
             'duty_type_id': duty_type.id,
-            'duty_type_name': duty_type.name
+            'duty_type_name': duty_type.name,
+            'people_per_day': duty_type.people_per_day,
+            'duty_count': employee.duty_count or 0  # Добавляем duty_count
         })
+    
     return result
 
 @router.delete("/clear")
@@ -611,11 +676,13 @@ async def export_department_duties_to_excel(
     department_id: int,
     year: int = Query(..., description="Год"),
     month: int = Query(..., description="Месяц"),
+    format: str = Query("employees", description="Формат экспорта: employees (по сотрудникам) или duty_types (по датам и типам)"),
     db: AsyncSession = Depends(get_db)
 ):
-    """Экспортировать наряды по подразделению в Excel (сотрудники × даты)"""
+    """Экспортировать наряды по подразделению в Excel"""
     try:
         from sqlalchemy import extract
+        
         # Получаем все записи нарядов для подразделения за месяц/год
         duty_records_result = await db.execute(
             select(DutyRecord, Employee, DutyType)
@@ -627,35 +694,131 @@ async def export_department_duties_to_excel(
             .order_by(Employee.last_name, Employee.first_name, DutyRecord.duty_date)
         )
         duty_records = duty_records_result.all()
-        # Собираем уникальные даты и сотрудников
-        dates = sorted({duty_record.duty_date for duty_record, _, _ in duty_records})
-        employees = []
-        emp_set = set()
-        for duty_record, employee, _ in duty_records:
-            if employee.id not in emp_set:
-                employees.append((employee.id, f"{employee.last_name} {employee.first_name}"))
-                emp_set.add(employee.id)
-        # Строим мапу: (employee_id, date) -> тип наряда
-        duty_map = {}
-        for duty_record, employee, duty_type in duty_records:
-            duty_map[(employee.id, duty_record.duty_date)] = duty_type.name
+        
         import openpyxl
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = f"Подразделение {department_id}"
-        # Первая строка — даты
-        header = ["Сотрудник"] + [date.strftime("%d-%m") for date in dates]
-        ws.append(header)
-        # Данные по сотрудникам
-        for emp_id, emp_name in employees:
-            row = [emp_name]
-            for date in dates:
-                row.append(duty_map.get((emp_id, date), ""))
-            ws.append(row)
+        
+        if format == "duty_types":
+            # Формат: даты в строках, типы нарядов в колонках
+            ws.title = f"Подразделение {department_id} - по датам и типам"
+            
+            # Собираем уникальные даты и типы нарядов
+            dates = sorted({duty_record.duty_date for duty_record, _, _ in duty_records})
+            duty_types = []
+            duty_type_set = set()
+            for duty_record, _, duty_type in duty_records:
+                if duty_type.id not in duty_type_set:
+                    duty_types.append((duty_type.id, duty_type.name))
+                    duty_type_set.add(duty_type.id)
+            
+            # Строим мапу: (date, duty_type_id) -> список сотрудников
+            duty_map = {}
+            for duty_record, employee, duty_type in duty_records:
+                key = (duty_record.duty_date, duty_type.id)
+                if key not in duty_map:
+                    duty_map[key] = []
+                duty_map[key].append(f"{employee.last_name} {employee.first_name}")
+            
+            # Функция получения цвета для типа наряда
+            def get_duty_color(duty_type_name: str):
+                name = duty_type_name.lower()
+                if 'академический' in name:
+                    return {'bg': 'E9D5FF', 'text': '7C3AED'}  # purple
+                elif 'дежурный' in name or 'дежурство' in name:
+                    return {'bg': 'DBEAFE', 'text': '1D4ED8'}  # blue
+                elif 'патрульный' in name or 'патруль' in name:
+                    return {'bg': 'D1FAE5', 'text': '047857'}  # green
+                elif 'караульный' in name or 'караул' in name:
+                    return {'bg': 'FEE2E2', 'text': 'DC2626'}  # red
+                elif 'конвойный' in name or 'конвой' in name:
+                    return {'bg': 'FED7AA', 'text': 'EA580C'}  # orange
+                elif 'охранный' in name or 'охрана' in name:
+                    return {'bg': 'FEF3C7', 'text': 'D97706'}  # yellow
+                elif 'инспектор' in name:
+                    return {'bg': 'E0E7FF', 'text': '3730A3'}  # indigo
+                elif 'комендант' in name:
+                    return {'bg': 'FCE7F3', 'text': 'BE185D'}  # pink
+                else:
+                    return {'bg': 'F3F4F6', 'text': '374151'}  # gray
+            
+            # Заголовки
+            header = ["Дата"] + [duty_type_name for _, duty_type_name in duty_types]
+            ws.append(header)
+            
+            # Применяем стили к заголовкам
+            for col in range(1, len(header) + 1):
+                cell = ws.cell(row=1, column=col)
+                cell.font = openpyxl.styles.Font(bold=True)
+                cell.fill = openpyxl.styles.PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
+            
+            # Данные по датам
+            for row_idx, date in enumerate(dates, start=2):
+                row = [date.strftime("%d-%m")]
+                for col_idx, (duty_type_id, duty_type_name) in enumerate(duty_types, start=2):
+                    employees = duty_map.get((date, duty_type_id), [])
+                    cell_value = ", ".join(employees) if employees else "—"
+                    row.append(cell_value)
+                    
+                    # Применяем цвет к ячейке если есть сотрудники
+                    if employees:
+                        cell = ws.cell(row=row_idx, column=col_idx)
+                        colors = get_duty_color(duty_type_name)
+                        cell.fill = openpyxl.styles.PatternFill(
+                            start_color=colors['bg'], 
+                            end_color=colors['bg'], 
+                            fill_type="solid"
+                        )
+                        cell.font = openpyxl.styles.Font(
+                            color=colors['text'],
+                            bold=True
+                        )
+                        # Добавляем границы
+                        cell.border = openpyxl.styles.Border(
+                            left=openpyxl.styles.Side(style='thin'),
+                            right=openpyxl.styles.Side(style='thin'),
+                            top=openpyxl.styles.Side(style='thin'),
+                            bottom=openpyxl.styles.Side(style='thin')
+                        )
+                
+                ws.append(row)
+                
+            filename = f"department_{department_id}_duty_types_{year}_{month:02d}.xlsx"
+        else:
+            # Формат по умолчанию: сотрудники в строках, даты в колонках
+            ws.title = f"Подразделение {department_id}"
+            
+            # Собираем уникальные даты и сотрудников
+            dates = sorted({duty_record.duty_date for duty_record, _, _ in duty_records})
+            employees = []
+            emp_set = set()
+            for duty_record, employee, _ in duty_records:
+                if employee.id not in emp_set:
+                    employees.append((employee.id, f"{employee.last_name} {employee.first_name}"))
+                    emp_set.add(employee.id)
+            
+            # Строим мапу: (employee_id, date) -> тип наряда
+            duty_map = {}
+            for duty_record, employee, duty_type in duty_records:
+                duty_map[(employee.id, duty_record.duty_date)] = duty_type.name
+            
+            # Первая строка — даты
+            header = ["Сотрудник"] + [date.strftime("%d-%m") for date in dates]
+            ws.append(header)
+            
+            # Данные по сотрудникам
+            for emp_id, emp_name in employees:
+                row = [emp_name]
+                for date in dates:
+                    row.append(duty_map.get((emp_id, date), ""))
+                ws.append(row)
+                
+            filename = f"department_{department_id}_duties_{year}_{month:02d}.xlsx"
+        
         stream = io.BytesIO()
         wb.save(stream)
         stream.seek(0)
-        filename = f"department_{department_id}_duties_{year}_{month:02d}.xlsx"
+        
         return StreamingResponse(
             stream,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

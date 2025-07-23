@@ -1,103 +1,87 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { 
-  BuildingOfficeIcon, 
-  UserGroupIcon, 
-  CalendarIcon,
   ClipboardDocumentListIcon,
-  ArrowRightIcon 
+  UserGroupIcon,
+  BuildingOfficeIcon
 } from '@heroicons/react/24/outline'
 
 const HomePage: React.FC = () => {
-  const systems = [
+  const sections = [
     {
       name: 'Система нарядов',
       description: 'Комплексная система для управления нарядами сотрудников с автоматическим распределением на основе различных критериев. Включает управление структурами, подразделениями, типами нарядов и их распределением.',
       icon: ClipboardDocumentListIcon,
       href: '/duty-structures',
-      features: [
-        'Управление структурами и подразделениями',
-        'Создание и настройка типов нарядов',
-        'Автоматическое распределение нарядов',
-        'Просмотр сотрудников и их статусов',
-        'Академические наряды'
-      ]
+      color: 'bg-indigo-600 hover:bg-indigo-700',
+      iconColor: 'text-indigo-600'
     },
     {
       name: 'Расход личного состава',
       description: 'Система для учета и анализа расхода личного состава по подразделениям. Позволяет отслеживать численность сотрудников, их распределение по группам и подразделениям.',
       icon: UserGroupIcon,
       href: '/personnel-expense',
-      features: [
-        'Управление подразделениями и группами',
-        'Учет сотрудников по подразделениям',
-        'Анализ расхода личного состава',
-        'Группировка сотрудников',
-        'Статистика по структурам'
-      ]
+      color: 'bg-green-600 hover:bg-green-700',
+      iconColor: 'text-green-600'
+    },
+    {
+      name: 'Управление подразделениями',
+      description: 'Система для управления структурой подразделений организации. Позволяет создавать, редактировать и удалять подразделения, а также управлять сотрудниками в них.',
+      icon: BuildingOfficeIcon,
+      href: '/departments',
+      color: 'bg-purple-600 hover:bg-purple-700',
+      iconColor: 'text-purple-600'
     }
   ]
 
   return (
-    <div className="relative isolate px-6 pt-14 lg:px-8">
-      <div className="mx-auto max-w-2xl py-32 sm:py-48 lg:py-56">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
+    <div className="min-h-screen bg-gray-50 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Заголовок */}
+        <div className="text-center mb-16">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl mb-6">
             Системы управления
           </h1>
-          <p className="mt-6 text-lg leading-8 text-gray-600">
-            Две основные системы для эффективного управления нарядами сотрудников 
-            и учета расхода личного состава организации.
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Выберите нужный раздел для работы с системой управления организацией
           </p>
         </div>
-      </div>
 
-      {/* Системы */}
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl lg:text-center">
-          <h2 className="text-base font-semibold leading-7 text-indigo-600">
-            Доступные системы
-          </h2>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-            Выберите нужную систему
-          </p>
-        </div>
-        <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
-          <dl className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-2">
-            {systems.map((system) => (
-              <div key={system.name} className="flex flex-col bg-white p-8 rounded-lg shadow-sm border border-gray-200">
-                <dt className="flex items-center gap-x-3 text-xl font-semibold leading-7 text-gray-900 mb-4">
-                  <system.icon className="h-6 w-6 flex-none text-indigo-600" aria-hidden="true" />
-                  {system.name}
-                </dt>
-                <dd className="flex flex-auto flex-col text-base leading-7 text-gray-600">
-                  <p className="flex-auto mb-6">{system.description}</p>
-                  
-                  <div className="mb-6">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Основные возможности:</h4>
-                    <ul className="space-y-2">
-                      {system.features.map((feature, index) => (
-                        <li key={index} className="flex items-center text-sm text-gray-600">
-                          <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full mr-3"></div>
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
+        {/* Три большие кнопки */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {sections.map((section) => (
+            <Link
+              key={section.name}
+              to={section.href}
+              className="group block h-full"
+            >
+              <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-200 overflow-hidden h-full flex flex-col">
+                {/* Иконка */}
+                <div className="p-8 text-center flex-shrink-0">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 group-hover:bg-gray-50 transition-colors duration-300">
+                    <section.icon className={`h-10 w-10 ${section.iconColor}`} />
                   </div>
+                </div>
+
+                {/* Контент */}
+                <div className="px-8 pb-8 flex-1 flex flex-col">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">
+                    {section.name}
+                  </h3>
+                  <p className="text-gray-600 text-center leading-relaxed mb-6 flex-1">
+                    {section.description}
+                  </p>
                   
-                  <div className="mt-auto">
-                    <Link
-                      to={system.href}
-                      className="inline-flex items-center rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                    >
-                      Перейти к системе
-                      <ArrowRightIcon className="ml-2 h-4 w-4" />
-                    </Link>
+                  {/* Кнопка */}
+                  <div className="text-center flex-shrink-0">
+                    <div className={`inline-flex items-center justify-center px-6 py-3 rounded-lg text-white font-semibold ${section.color} transition-colors duration-300`}>
+                      Перейти к разделу
+                    </div>
                   </div>
-                </dd>
+                </div>
               </div>
-            ))}
-          </dl>
+            </Link>
+          ))}
         </div>
       </div>
     </div>

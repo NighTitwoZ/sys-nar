@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { 
   ChevronRightIcon, 
@@ -16,6 +16,7 @@ import EditGroupModal from '../components/EditGroupModal'
 import EditEmployeeModal from '../components/EditEmployeeModal'
 import AddEmployeeModal from '../components/AddEmployeeModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Structure {
   id: number
@@ -255,48 +256,14 @@ const DepartmentDetailPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
-        <nav className="flex mb-8" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
-            <li>
-              <button
-                onClick={() => navigate('/')}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                Главная
-              </button>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="flex-shrink-0 h-5 w-5 text-gray-400" />
-                <button
-                  onClick={() => navigate('/departments')}
-                  className="ml-4 text-gray-400 hover:text-gray-500"
-                >
-                  Структуры
-                </button>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="flex-shrink-0 h-5 w-5 text-gray-400" />
-                <button
-                  onClick={() => navigate(`/departments/${structureId}`)}
-                  className="ml-4 text-gray-400 hover:text-gray-500"
-                >
-                  {structure.name}
-                </button>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="flex-shrink-0 h-5 w-5 text-gray-400" />
-                <span className="ml-4 text-gray-900 font-medium">{department.name}</span>
-              </div>
-            </li>
-          </ol>
-        </nav>
+        <Breadcrumbs 
+          items={[
+            { label: 'Подразделения', path: '/departments' },
+            { label: department?.name || 'Подразделение' }
+          ]} 
+        />
 
-        {/* Кнопки навигации */}
+        {/* Кнопка назад */}
         <div className="mb-4">
           <button
             onClick={() => navigate(-1)}
@@ -442,17 +409,19 @@ const DepartmentDetailPage: React.FC = () => {
               {filteredEmployees.map((employee) => (
                 <li key={employee.id} className="py-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div>
+                    <div className="flex items-center flex-1">
+                      <div className="flex-1 min-w-0">
                         <span className="font-medium text-gray-900">
+                          {employee.rank && <span className="text-gray-600 mr-2">{employee.rank}</span>}
                           {employee.last_name} {employee.first_name} {employee.middle_name}
                         </span>
                         <p className="text-sm text-gray-500">{employee.position}</p>
-                        {employee.rank && <p className="text-sm text-gray-500">{employee.rank}</p>}
                       </div>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {getGroupName(employee.group_id)}
-                      </span>
+                      <div className="ml-6 flex-shrink-0 w-32 text-center">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {getGroupName(employee.group_id)}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       <button

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { 
   BuildingOfficeIcon, 
   ChevronRightIcon,
   PlusIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Structure {
   id: number
@@ -22,6 +24,7 @@ const PersonnelExpensePage: React.FC = () => {
   const [structures, setStructures] = useState<Structure[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     fetchStructures()
@@ -86,6 +89,13 @@ const PersonnelExpensePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Хлебные крошки */}
+        <Breadcrumbs 
+          items={[
+            { label: 'Расход личного состава' }
+          ]} 
+        />
+
         {/* Заголовок */}
         <div className="sm:flex sm:items-center">
           <div className="sm:flex-auto">
@@ -94,18 +104,16 @@ const PersonnelExpensePage: React.FC = () => {
               Выберите структуру для просмотра подразделений и сотрудников
             </p>
           </div>
+          <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+            <button
+              type="button"
+              onClick={() => navigate('/personnel-expense/report')}
+              className="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            >
+              Строевая записка
+            </button>
+          </div>
         </div>
-
-        {/* Хлебные крошки */}
-        <nav className="flex mt-4" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
-            <li>
-              <div className="flex items-center">
-                <span className="text-sm font-medium text-gray-500">Расход личного состава</span>
-              </div>
-            </li>
-          </ol>
-        </nav>
 
         {/* Ошибка */}
         {error && (

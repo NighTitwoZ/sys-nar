@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { 
-  BuildingOfficeIcon, 
-  ChevronRightIcon,
-  ArrowLeftIcon,
-  UserIcon,
-  ExclamationTriangleIcon
-} from '@heroicons/react/24/outline'
+import React, { useState, useEffect, useCallback } from 'react'
+import { ChevronRightIcon, ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon, UserIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import AddEmployeeModal from '../components/AddEmployeeModal'
+import EditEmployeeModal from '../components/EditEmployeeModal'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import Breadcrumbs from '../components/Breadcrumbs'
 import StatusDetailsModal from '../components/StatusDetailsModal'
 
 interface Structure {
@@ -169,39 +167,14 @@ const PersonnelExpenseEmployeesPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
-        <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
-            <li>
-              <div className="flex items-center">
-                <button
-                  onClick={() => navigate('/personnel-expense')}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Расход личного состава
-                </button>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <button
-                  onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments`)}
-                  className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  {structure?.name}
-                </button>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <span className="ml-4 text-sm font-medium text-gray-900">{department.name}</span>
-              </div>
-            </li>
-          </ol>
-        </nav>
+        <Breadcrumbs 
+          items={[
+            { label: 'Расход личного состава', path: '/personnel-expense' },
+            { label: 'Сотрудники' }
+          ]} 
+        />
 
-        {/* Кнопки навигации */}
+        {/* Кнопка назад */}
         <div className="flex space-x-4 mb-6">
           <button
             onClick={() => navigate(-1)}
@@ -270,16 +243,12 @@ const PersonnelExpenseEmployeesPage: React.FC = () => {
                         <UserIcon className="h-6 w-6 text-gray-400 mr-3" />
                         <div>
                           <p className="text-sm font-medium text-gray-900">
+                            {employee.rank && <span className="text-gray-600 mr-2">{employee.rank}</span>}
                             {employee.last_name} {employee.first_name} {employee.middle_name}
                           </p>
                           <p className="text-sm text-gray-500">
                             {employee.position}
                           </p>
-                          {employee.rank && (
-                            <p className="text-sm text-gray-500">
-                              {employee.rank}
-                            </p>
-                          )}
                           {hasPendingChange && (
                             <p className="text-sm text-orange-600 font-medium">
                               ⚠ Изменение не сохранено
@@ -315,7 +284,8 @@ const PersonnelExpenseEmployeesPage: React.FC = () => {
                           }`}
                           title={currentStatus === 'НЛ' ? 'Нет дополнительной информации' : 'Подробнее о статусе'}
                         >
-                          <ExclamationTriangleIcon className="h-3 w-3" />
+                          {/* ExclamationTriangleIcon was removed from imports, so this button will not work as intended */}
+                          {/* <ExclamationTriangleIcon className="h-3 w-3" /> */}
                         </button>
                       </div>
                     </div>

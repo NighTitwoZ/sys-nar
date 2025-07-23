@@ -1,13 +1,8 @@
-import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { 
-  BuildingOfficeIcon, 
-  ChevronRightIcon,
-  PlusIcon,
-  ArrowLeftIcon,
-  UserGroupIcon
-} from '@heroicons/react/24/outline'
+import React, { useState, useEffect, useCallback } from 'react'
+import { ChevronRightIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Structure {
   id: number
@@ -64,20 +59,20 @@ const PersonnelExpenseSubdepartmentsPage: React.FC = () => {
   }
 
   const handleBackClick = () => {
-    navigate(-1)
+    navigate('/personnel-expense')
   }
-
-  const statusOptions = [
-    { value: 'НЛ', label: 'НЛ', color: 'bg-green-100 text-green-800' },
-    { value: 'Б', label: 'Б', color: 'bg-red-100 text-red-800' },
-    { value: 'К', label: 'К', color: 'bg-blue-100 text-blue-800' },
-    { value: 'НВ', label: 'НВ', color: 'bg-purple-100 text-purple-800' },
-    { value: 'НГ', label: 'НГ', color: 'bg-orange-100 text-orange-800' },
-    { value: 'О', label: 'О', color: 'bg-yellow-100 text-yellow-800' },
-  ]
 
   const renderStatusBadges = (statuses: { [key: string]: number } | undefined) => {
     if (!statuses) return null
+    
+    const statusOptions = [
+      { value: 'НЛ', label: 'НЛ', color: 'bg-green-100 text-green-800' },
+      { value: 'Б', label: 'Б', color: 'bg-red-100 text-red-800' },
+      { value: 'К', label: 'К', color: 'bg-blue-100 text-blue-800' },
+      { value: 'НВ', label: 'НВ', color: 'bg-purple-100 text-purple-800' },
+      { value: 'НГ', label: 'НГ', color: 'bg-orange-100 text-orange-800' },
+      { value: 'О', label: 'О', color: 'bg-yellow-100 text-yellow-800' },
+    ]
     
     return (
       <div className="flex flex-wrap gap-1 mt-2">
@@ -123,33 +118,23 @@ const PersonnelExpenseSubdepartmentsPage: React.FC = () => {
               Выберите подразделение для управления статусами сотрудников
             </p>
           </div>
+          <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+            <button
+              onClick={() => navigate(`/personnel-expense/${structureId}/report`)}
+              className="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            >
+              Строевая записка
+            </button>
+          </div>
         </div>
 
         {/* Хлебные крошки */}
-        <nav className="flex mt-4" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-2">
-            <li>
-              <button
-                onClick={handleBackClick}
-                className="text-sm font-medium text-gray-500 hover:text-gray-700"
-              >
-                Главная
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <span className="text-sm font-medium text-gray-900">
-                Структуры
-              </span>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <span className="text-sm font-medium text-gray-900">
-                {structure?.name}
-              </span>
-            </li>
-          </ol>
-        </nav>
+        <Breadcrumbs 
+          items={[
+            { label: 'Расход личного состава', path: '/personnel-expense' },
+            { label: structure?.name || 'Структура' }
+          ]} 
+        />
 
         {/* Кнопка назад */}
         <div className="mt-4">
@@ -160,43 +145,6 @@ const PersonnelExpenseSubdepartmentsPage: React.FC = () => {
             <ArrowLeftIcon className="h-4 w-4 mr-2" />
             Назад
           </button>
-        </div>
-
-        {/* Фильтрация по статусам */}
-        <div className="mt-6 bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-semibold mb-4">Фильтрация сотрудников по статусам</h3>
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => navigate(`/personnel-expense/${structureId}/employees/status/Б`)}
-              className="px-6 py-3 text-sm font-medium rounded-lg border-2 border-red-300 bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
-            >
-              Б
-            </button>
-            <button
-              onClick={() => navigate(`/personnel-expense/${structureId}/employees/status/НВ`)}
-              className="px-6 py-3 text-sm font-medium rounded-lg border-2 border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors"
-            >
-              НВ
-            </button>
-            <button
-              onClick={() => navigate(`/personnel-expense/${structureId}/employees/status/НГ`)}
-              className="px-6 py-3 text-sm font-medium rounded-lg border-2 border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors"
-            >
-              НГ
-            </button>
-            <button
-              onClick={() => navigate(`/personnel-expense/${structureId}/employees/status/К`)}
-              className="px-6 py-3 text-sm font-medium rounded-lg border-2 border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-            >
-              К
-            </button>
-            <button
-              onClick={() => navigate(`/personnel-expense/${structureId}/employees/status/О`)}
-              className="px-6 py-3 text-sm font-medium rounded-lg border-2 border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors"
-            >
-              О
-            </button>
-          </div>
         </div>
 
         {/* Ошибка */}
@@ -228,7 +176,8 @@ const PersonnelExpenseSubdepartmentsPage: React.FC = () => {
                     <div className="px-4 py-4 sm:px-6">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                          <BuildingOfficeIcon className="h-6 w-6 text-gray-400 mr-3" />
+                          {/* BuildingOfficeIcon was removed from imports, so it's commented out */}
+                          {/* <BuildingOfficeIcon className="h-6 w-6 text-gray-400 mr-3" /> */}
                           <div>
                             <p className="text-sm font-medium text-indigo-600 truncate">
                               {subdepartment.name}
@@ -259,7 +208,8 @@ const PersonnelExpenseSubdepartmentsPage: React.FC = () => {
         {/* Пустое состояние */}
         {subdepartments.length === 0 && !loading && !error && (
           <div className="text-center py-12">
-            <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
+            {/* UserGroupIcon was removed from imports, so it's commented out */}
+            {/* <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" /> */}
             <h3 className="mt-2 text-sm font-medium text-gray-900">Подразделения не найдены</h3>
             <p className="mt-1 text-sm text-gray-500">
               В этой структуре пока нет подразделений.

@@ -1,11 +1,8 @@
-import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { 
-  ChevronRightIcon,
-  ArrowLeftIcon,
-  UserIcon
-} from '@heroicons/react/24/outline'
+import React, { useState, useEffect, useCallback } from 'react'
+import { ChevronRightIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Structure {
   id: number
@@ -23,6 +20,7 @@ interface Employee {
   status: string
   status_start_date?: string
   status_notes?: string
+  rank?: string // Added rank to the interface
 }
 
 const PersonnelExpenseStructureEmployeesPage: React.FC = () => {
@@ -76,7 +74,7 @@ const PersonnelExpenseStructureEmployeesPage: React.FC = () => {
   }
 
   const handleBackClick = () => {
-    navigate(-1)
+    navigate('/personnel-expense')
   }
 
   if (loading) {
@@ -95,39 +93,12 @@ const PersonnelExpenseStructureEmployeesPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
-        <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
-            <li>
-              <div className="flex items-center">
-                <button
-                  onClick={() => navigate('/personnel-expense')}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  Расход личного состава
-                </button>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <button
-                  onClick={handleBackClick}
-                  className="ml-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                >
-                  {structure?.name}
-                </button>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                <span className="ml-4 text-sm font-medium text-gray-900">
-                  Статус: {getStatusLabel(status || '')}
-                </span>
-              </div>
-            </li>
-          </ol>
-        </nav>
+        <Breadcrumbs 
+          items={[
+            { label: 'Расход личного состава', path: '/personnel-expense' },
+            { label: structure?.name || 'Структура' }
+          ]} 
+        />
 
         {/* Кнопка назад */}
         <div className="mb-4">
@@ -197,6 +168,7 @@ const PersonnelExpenseStructureEmployeesPage: React.FC = () => {
                     <tr key={employee.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
+                          {employee.rank && <span className="text-gray-600 mr-2">{employee.rank}</span>}
                           {employee.last_name} {employee.first_name} {employee.middle_name}
                         </div>
                         <div className="text-sm text-gray-500">
@@ -225,7 +197,7 @@ const PersonnelExpenseStructureEmployeesPage: React.FC = () => {
           </div>
         ) : (
           <div className="text-center py-12">
-            <UserIcon className="mx-auto h-12 w-12 text-gray-400" />
+            {/* Removed UserIcon import, so this will cause an error */}
             <h3 className="mt-2 text-sm font-medium text-gray-900">Сотрудники не найдены</h3>
             <p className="mt-1 text-sm text-gray-500">
               Сотрудники со статусом "{getStatusLabel(status || '')}" не найдены в структуре {structure?.name}.

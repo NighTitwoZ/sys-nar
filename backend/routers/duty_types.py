@@ -13,6 +13,7 @@ class DutyTypeCreate(BaseModel):
     description: Optional[str] = None
     duty_category: Optional[str] = "academic"
     people_per_day: Optional[int] = 1
+    days_duration: Optional[int] = 1
     priority: Optional[int] = 1
 
 class DutyTypeCreateForDepartment(BaseModel):
@@ -20,6 +21,7 @@ class DutyTypeCreateForDepartment(BaseModel):
     description: Optional[str] = None
     duty_category: str = "academic"
     people_per_day: int = 1
+    days_duration: int = 1
     department_id: int
 
 class DutyTypeResponse(BaseModel):
@@ -28,6 +30,7 @@ class DutyTypeResponse(BaseModel):
     description: Optional[str] = None
     duty_category: str
     people_per_day: int
+    days_duration: int
     priority: int
     
     class Config:
@@ -39,6 +42,7 @@ class DutyTypeWithDepartmentResponse(BaseModel):
     description: Optional[str] = None
     duty_category: str
     people_per_day: int
+    days_duration: int
     department_name: str
     
     class Config:
@@ -111,6 +115,7 @@ async def create_duty_type(duty_type: DutyTypeCreate, db: AsyncSession = Depends
         description=duty_type.description,
         duty_category=duty_type.duty_category,
         people_per_day=duty_type.people_per_day,
+        days_duration=duty_type.days_duration,
         priority=duty_type.priority
     )
     db.add(db_duty_type)
@@ -154,7 +159,8 @@ async def create_duty_type_for_department(duty_type: DutyTypeCreateForDepartment
                 name=duty_type.name,
                 description=duty_type.description,
                 duty_category=duty_type.duty_category,
-                people_per_day=duty_type.people_per_day
+                people_per_day=duty_type.people_per_day,
+                days_duration=duty_type.days_duration
             )
             db.add(db_duty_type)
             await db.commit()
@@ -175,7 +181,8 @@ async def create_duty_type_for_department(duty_type: DutyTypeCreateForDepartment
                 name=duty_type.name,
                 description=duty_type.description,
                 duty_category=duty_type.duty_category,
-                people_per_day=duty_type.people_per_day
+                people_per_day=duty_type.people_per_day,
+                days_duration=duty_type.days_duration
             )
             db.add(db_duty_type)
             await db.commit()
@@ -300,6 +307,7 @@ async def get_all_duty_types_with_departments(db: AsyncSession = Depends(get_db)
             DutyType.description,
             DutyType.duty_category,
             DutyType.people_per_day,
+            DutyType.days_duration,
             Employee.department_id
         )
         .join(EmployeeDutyType, DutyType.id == EmployeeDutyType.duty_type_id)
@@ -377,6 +385,7 @@ async def get_duty_types_by_structure_with_departments(structure_id: int, db: As
             DutyType.description,
             DutyType.duty_category,
             DutyType.people_per_day,
+            DutyType.days_duration,
             Employee.department_id
         )
         .join(EmployeeDutyType, DutyType.id == EmployeeDutyType.duty_type_id)
@@ -437,6 +446,7 @@ async def get_all_duty_types_by_structure(structure_id: int, db: AsyncSession = 
             DutyType.description,
             DutyType.duty_category,
             DutyType.people_per_day,
+            DutyType.days_duration,
             Employee.department_id
         )
         .join(EmployeeDutyType, DutyType.id == EmployeeDutyType.duty_type_id)

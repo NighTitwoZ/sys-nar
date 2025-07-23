@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import AddDepartmentModal from '../components/AddDepartmentModal'
 import EditDepartmentModal from '../components/EditDepartmentModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Department {
   id: number
@@ -110,6 +111,13 @@ const DepartmentsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Хлебные крошки */}
+        <Breadcrumbs 
+          items={[
+            { label: 'Подразделения' }
+          ]} 
+        />
+
         {/* Заголовок */}
         <div className="sm:flex sm:items-center">
           <div className="sm:flex-auto">
@@ -129,17 +137,6 @@ const DepartmentsPage: React.FC = () => {
             </button>
           </div>
         </div>
-
-        {/* Хлебные крошки */}
-        <nav className="flex mt-4" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
-            <li>
-              <div className="flex items-center">
-                <span className="text-sm font-medium text-gray-500">Структуры</span>
-              </div>
-            </li>
-          </ol>
-        </nav>
 
         {/* Ошибка */}
         {error && (
@@ -168,9 +165,9 @@ const DepartmentsPage: React.FC = () => {
               ) : (
                 departments.map((department) => (
                   <li key={department.id}>
-                    <button
+                    <div
                       onClick={() => handleDepartmentClick(department)}
-                      className="w-full block hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset"
+                      className="w-full block hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset cursor-pointer"
                     >
                       <div className="px-6 py-4 flex items-center justify-between">
                         <div className="flex items-center">
@@ -210,7 +207,7 @@ const DepartmentsPage: React.FC = () => {
                           <ChevronRightIcon className="h-5 w-5 text-gray-400" />
                         </div>
                       </div>
-                    </button>
+                    </div>
                   </li>
                 ))
               )}

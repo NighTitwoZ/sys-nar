@@ -8,6 +8,7 @@ interface AcademicDutyType {
   description: string | null
   priority: number
   people_per_day: number
+  days_duration: number
   duty_category: string
 }
 
@@ -65,6 +66,7 @@ const AcademicDutyTypeModal: React.FC<AcademicDutyTypeModalProps> = ({
         name: selectedDutyType.name,
         description: selectedDutyType.description,
         people_per_day: selectedDutyType.people_per_day,
+        days_duration: selectedDutyType.days_duration || 1,
         duty_category: selectedDutyType.duty_category,
         department_id: departmentId
       })
@@ -143,6 +145,9 @@ const AcademicDutyTypeModal: React.FC<AcademicDutyTypeModalProps> = ({
                         </span>
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                           {dutyType.people_per_day} чел/сут
+                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {dutyType.days_duration || 1} дн
                         </span>
                       </div>
                     </div>

@@ -6,6 +6,7 @@ interface DutyType {
   description?: string;
   priority: number;
   people_per_day: number;
+  days_duration: number;
   duty_category: string;
 }
 
@@ -27,6 +28,7 @@ const EditDutyTypeModal: React.FC<EditDutyTypeModalProps> = ({
     description: '',
     priority: 1,
     people_per_day: 1,
+    days_duration: 1,
     duty_category: 'internal'
   });
   const [loading, setLoading] = useState(false);
@@ -39,6 +41,7 @@ const EditDutyTypeModal: React.FC<EditDutyTypeModalProps> = ({
         description: dutyType.description || '',
         priority: dutyType.priority,
         people_per_day: dutyType.people_per_day,
+        days_duration: dutyType.days_duration || 1,
         duty_category: dutyType.duty_category
       });
     }
@@ -79,7 +82,7 @@ const EditDutyTypeModal: React.FC<EditDutyTypeModalProps> = ({
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'priority' || name === 'people_per_day' ? parseInt(value) || 1 : value
+      [name]: name === 'priority' || name === 'people_per_day' || name === 'days_duration' ? parseInt(value) || 1 : value
     }));
   };
 
@@ -88,6 +91,14 @@ const EditDutyTypeModal: React.FC<EditDutyTypeModalProps> = ({
     setFormData(prev => ({
       ...prev,
       people_per_day: value
+    }));
+  };
+
+  const handleDaysSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value) || 1;
+    setFormData(prev => ({
+      ...prev,
+      days_duration: value
     }));
   };
 
@@ -202,6 +213,27 @@ const EditDutyTypeModal: React.FC<EditDutyTypeModalProps> = ({
               <span>8</span>
               <span>9</span>
               <span>10</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Сколько дней занимает наряд: {formData.days_duration} *
+            </label>
+            <input
+              type="range"
+              name="days_duration"
+              value={formData.days_duration}
+              onChange={handleDaysSliderChange}
+              min="1"
+              max="3"
+              step="1"
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
             </div>
           </div>
 

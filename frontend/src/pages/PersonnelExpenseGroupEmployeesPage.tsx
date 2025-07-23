@@ -1,18 +1,11 @@
-import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { 
-  UserIcon, 
-  ChevronRightIcon, 
-  ArrowLeftIcon,
-  PencilIcon,
-  ArrowRightIcon,
-  TrashIcon,
-  Cog6ToothIcon
-} from '@heroicons/react/24/outline'
+import React, { useState, useEffect, useCallback } from 'react'
+import { ArrowLeftIcon, ArrowRightIcon, Cog6ToothIcon, UserIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
+import { useNavigate, useParams } from 'react-router-dom'
 import EditEmployeeModal from '../components/EditEmployeeModal'
 import TransferEmployeeModal from '../components/TransferEmployeeModal'
 import EmployeeDutyTypesModal from '../components/EmployeeDutyTypesModal'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Structure {
   id: number
@@ -184,46 +177,16 @@ const PersonnelExpenseGroupEmployeesPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
-        <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-2">
-            <li>
-              <button
-                onClick={() => navigate('/personnel-expense')}
-                className="text-sm font-medium text-gray-500 hover:text-gray-700"
-              >
-                Главная
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <button
-                onClick={() => navigate(`/personnel-expense/${structureId}/subdepartments`)}
-                className="text-sm font-medium text-gray-500 hover:text-gray-700"
-              >
-                Структуры
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <button
-                onClick={() => navigate(`/departments/${structureId}/subdepartments/${departmentId}`)}
-                className="text-sm font-medium text-gray-500 hover:text-gray-700"
-              >
-                {structure?.name}
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <span className="text-sm font-medium text-gray-900">{department?.name}</span>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <span className="text-sm font-medium text-gray-900">{group.name}</span>
-            </li>
-          </ol>
-        </nav>
+        <Breadcrumbs 
+          items={[
+            { label: 'Расход личного состава', path: '/personnel-expense' },
+            { label: structure?.name || 'Структура', path: `/personnel-expense/${structureId}/subdepartments` },
+            { label: department?.name || 'Подразделение', path: `/personnel-expense/${structureId}/subdepartments/${departmentId}/groups` },
+            { label: group?.name || 'Группа' }
+          ]} 
+        />
 
-        {/* Кнопки навигации */}
+        {/* Кнопка назад */}
         <div className="mb-4 flex gap-4">
           <button
             onClick={() => navigate(-1)}
@@ -261,16 +224,12 @@ const PersonnelExpenseGroupEmployeesPage: React.FC = () => {
                       <UserIcon className="h-6 w-6 text-gray-400 mr-3" />
                       <div>
                         <p className="text-sm font-medium text-gray-900">
+                          {employee.rank && <span className="text-gray-600 mr-2">{employee.rank}</span>}
                           {employee.last_name} {employee.first_name} {employee.middle_name}
                         </p>
                         <p className="text-sm text-gray-500">
                           {employee.position}
                         </p>
-                        {employee.rank && (
-                          <p className="text-sm text-gray-500">
-                            {employee.rank}
-                          </p>
-                        )}
                         <p className="text-sm text-gray-500">
                           Статус: {employee.status}
                         </p>

@@ -15,6 +15,7 @@ class EmployeeCreate(BaseModel):
     last_name: str
     middle_name: Optional[str] = None
     position: str
+    rank: Optional[str] = None
     department_id: int
     group_id: Optional[int] = None
     status: str = "НЛ"
@@ -30,6 +31,7 @@ class EmployeeResponse(BaseModel):
     last_name: str
     middle_name: Optional[str] = None
     position: str
+    rank: Optional[str] = None
     department_id: int
     group_id: Optional[int] = None
     is_active: bool
@@ -46,6 +48,57 @@ async def get_employees(db: AsyncSession = Depends(get_db)):
     employees = result.scalars().all()
     return employees
 
+@router.get("/with-status")
+async def get_all_employees_with_status(db: AsyncSession = Depends(get_db)):
+    """Получить всех сотрудников со статусами для строевой записки"""
+    result = await db.execute(
+        select(Employee)
+        .where(Employee.is_active == True)
+        .options(selectinload(Employee.department))
+        .options(selectinload(Employee.status_details))
+        .order_by(Employee.last_name, Employee.first_name)
+    )
+    employees = result.scalars().all()
+    
+    employees_with_status = []
+    for employee in employees:
+        # Получаем последний статус
+        latest_status_detail = None
+        if employee.status_details:
+            latest_status_detail = max(employee.status_details, key=lambda x: x.created_at)
+        
+        # Определяем статус для отображения
+        display_status = employee.status
+        if display_status == "НЛ":
+            display_status = "На лицо"
+        elif display_status == "НВ":
+            display_status = "Наряд внутренний"
+        elif display_status == "НГ":
+            display_status = "Наряд по гарнизону"
+        elif display_status == "Б":
+            display_status = "Болен"
+        elif display_status == "К":
+            display_status = "Командировка"
+        elif display_status == "О":
+            display_status = "Отпуск"
+        
+        employee_data = {
+            'id': employee.id,
+            'first_name': employee.first_name,
+            'last_name': employee.last_name,
+            'middle_name': employee.middle_name,
+            'position': employee.position,
+            'rank': employee.rank,
+            'department_name': employee.department.name if employee.department else '',
+            'status': display_status,
+            'status_start_date': latest_status_detail.start_date.isoformat() if latest_status_detail else None,
+            'status_notes': latest_status_detail.notes if latest_status_detail else None
+        }
+        
+        employees_with_status.append(employee_data)
+    
+    return employees_with_status
+
 @router.get("/department/{department_id}")
 async def get_employees_by_department(department_id: int, db: AsyncSession = Depends(get_db)):
     """Получить сотрудников подразделения с их типами нарядов"""
@@ -53,6 +106,7 @@ async def get_employees_by_department(department_id: int, db: AsyncSession = Dep
         select(Employee)
         .where(Employee.department_id == department_id)
         .options(selectinload(Employee.employee_duty_types).selectinload(EmployeeDutyType.duty_type))
+        .options(selectinload(Employee.group))
         .order_by(Employee.last_name, Employee.first_name)
     )
     employees = result.scalars().all()
@@ -66,10 +120,16 @@ async def get_employees_by_department(department_id: int, db: AsyncSession = Dep
             'last_name': employee.last_name,
             'middle_name': employee.middle_name,
             'position': employee.position,
+            'rank': getattr(employee, 'rank', None),
             'department_id': employee.department_id,
             'group_id': employee.group_id,
+            'group': {
+                'id': employee.group.id,
+                'name': employee.group.name
+            } if employee.group else None,
             'is_active': employee.is_active,
             'status': employee.status,
+            'duty_count': employee.duty_count,
             'duty_types': []
         }
         
@@ -113,6 +173,8 @@ async def get_employees_by_department_with_status(department_id: int, db: AsyncS
             'last_name': employee.last_name,
             'middle_name': employee.middle_name,
             'position': employee.position,
+            'rank': getattr(employee, 'rank', None),
+            'group_id': employee.group_id,
             'status': employee.status,
             'status_updated_at': employee.status_updated_at.isoformat() if employee.status_updated_at else None,
             'status_start_date': latest_status_detail.start_date.isoformat() if latest_status_detail else None,
@@ -256,6 +318,44 @@ async def get_employee(employee_id: int, db: AsyncSession = Depends(get_db)):
     
     return employee
 
+@router.get("/{employee_id}/detailed")
+async def get_employee_detailed(employee_id: int, db: AsyncSession = Depends(get_db)):
+    """Получить сотрудника по ID с подробной информацией"""
+    result = await db.execute(
+        select(Employee)
+        .options(selectinload(Employee.department))
+        .options(selectinload(Employee.group))
+        .options(selectinload(Employee.status_details))
+        .where(Employee.id == employee_id)
+    )
+    employee = result.scalar_one_or_none()
+    
+    if not employee:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+    
+    # Получаем последние детали статуса
+    latest_status_detail = None
+    if employee.status_details:
+        latest_status_detail = max(employee.status_details, key=lambda x: x.created_at)
+    
+    return {
+        'id': employee.id,
+        'first_name': employee.first_name,
+        'last_name': employee.last_name,
+        'middle_name': employee.middle_name,
+        'position': employee.position,
+        'rank': employee.rank,
+        'department_id': employee.department_id,
+        'department_name': employee.department.name if employee.department else '',
+        'group_id': employee.group_id,
+        'group_name': employee.group.name if employee.group and employee.group_id else None,
+        'status': employee.status,
+        'is_active': employee.is_active,
+        'status_updated_at': employee.status_updated_at,
+        'status_start_date': latest_status_detail.start_date.isoformat() if latest_status_detail else None,
+        'status_notes': latest_status_detail.notes if latest_status_detail else None
+    }
+
 @router.put("/{employee_id}", response_model=EmployeeResponse)
 async def update_employee(employee_id: int, employee: EmployeeCreate, db: AsyncSession = Depends(get_db)):
     """Обновить сотрудника"""
@@ -314,6 +414,25 @@ async def update_employee_status(employee_id: int, status_data: dict, db: AsyncS
     await db.refresh(employee)
     
     return {"message": "Статус обновлен", "status": employee.status}
+
+@router.patch("/{employee_id}/duty-count")
+async def update_employee_duty_count(employee_id: int, duty_count_data: dict, db: AsyncSession = Depends(get_db)):
+    """Обновить количество нарядов сотрудника"""
+    result = await db.execute(select(Employee).where(Employee.id == employee_id))
+    employee = result.scalar_one_or_none()
+    
+    if not employee:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+    
+    duty_count = duty_count_data.get("duty_count")
+    if duty_count is None or not isinstance(duty_count, int) or duty_count < 0:
+        raise HTTPException(status_code=400, detail="Недопустимое количество нарядов")
+    
+    employee.duty_count = duty_count
+    await db.commit()
+    await db.refresh(employee)
+    
+    return {"message": "Количество нарядов обновлено", "duty_count": employee.duty_count}
 
 @router.post("/{employee_id}/status-details")
 async def save_status_details(employee_id: int, status_details: StatusDetailsCreate, db: AsyncSession = Depends(get_db)):

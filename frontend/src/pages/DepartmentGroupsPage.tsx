@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { UserGroupIcon, PlusIcon, TrashIcon, PencilIcon, ArrowLeftIcon, ChevronRightIcon, UserIcon } from '@heroicons/react/24/outline'
+import React, { useState, useEffect, useCallback } from 'react'
+import { ChevronRightIcon, ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon, UserIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import AddGroupModal from '../components/AddGroupModal'
+import EditGroupModal from '../components/EditGroupModal'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Group {
   id: number
@@ -77,33 +81,15 @@ const DepartmentGroupsPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Хлебные крошки */}
-        <nav className="flex mb-6" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-2">
-            <li>
-              <button
-                onClick={() => navigate('/departments')}
-                className="text-sm font-medium text-gray-500 hover:text-gray-700"
-              >
-                Главная
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <button
-                onClick={() => navigate(`/departments/${structureId}/subdepartments`)}
-                className="text-sm font-medium text-gray-500 hover:text-gray-700"
-              >
-                Структуры
-              </button>
-            </li>
-            <li className="text-gray-400">{'>'}</li>
-            <li>
-              <span className="text-sm font-medium text-gray-900">{department?.name}</span>
-            </li>
-          </ol>
-        </nav>
+        <Breadcrumbs 
+          items={[
+            { label: 'Подразделения', path: '/departments' },
+            { label: department?.name || 'Подразделение', path: `/departments/${departmentId}` },
+            { label: 'Группы' }
+          ]} 
+        />
 
-        {/* Кнопки навигации */}
+        {/* Кнопка назад */}
         <div className="mb-4 flex gap-4">
           <button
             onClick={() => navigate(-1)}
