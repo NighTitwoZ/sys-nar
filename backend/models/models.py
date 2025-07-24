@@ -59,6 +59,7 @@ class Employee(Base):
     employee_duty_types = relationship("EmployeeDutyType", back_populates="employee")
     duty_records = relationship("DutyRecord", back_populates="employee")
     status_details = relationship("EmployeeStatusDetails", back_populates="employee")
+    status_schedules = relationship("EmployeeStatusSchedule", back_populates="employee")
     
     # Виртуальная связь для получения типов нарядов
     @property
@@ -139,4 +140,20 @@ class DepartmentDutyDay(Base):
     
     # Связи
     department = relationship("Department")
-    duty_type = relationship("DutyType") 
+    duty_type = relationship("DutyType")
+
+class EmployeeStatusSchedule(Base):
+    """Модель расписания статусов сотрудника"""
+    __tablename__ = "employee_status_schedules"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    status = Column(String(10), nullable=False)  # Б, К, О (Болен, Командировка, Отпуск)
+    start_date = Column(Date, nullable=False)  # Дата начала статуса
+    end_date = Column(Date, nullable=False)  # Дата окончания статуса
+    notes = Column(Text, nullable=True)  # Примечания
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Связи
+    employee = relationship("Employee", back_populates="status_schedules") 

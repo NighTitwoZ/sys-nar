@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { ArrowLeftIcon, ArrowRightIcon, Cog6ToothIcon, UserIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, ArrowRightIcon, Cog6ToothIcon, UserIcon, PencilIcon, TrashIcon, CalendarIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 import { useNavigate, useParams } from 'react-router-dom'
 import EditEmployeeModal from '../components/EditEmployeeModal'
 import TransferEmployeeModal from '../components/TransferEmployeeModal'
 import EmployeeDutyTypesModal from '../components/EmployeeDutyTypesModal'
+import EmployeeStatusCalendarModal from '../components/EmployeeStatusCalendarModal'
 import Breadcrumbs from '../components/Breadcrumbs'
 
 interface Structure {
@@ -47,6 +48,7 @@ const PersonnelExpenseGroupEmployeesPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false)
   const [isDutyTypesModalOpen, setIsDutyTypesModalOpen] = useState(false)
+  const [isStatusCalendarModalOpen, setIsStatusCalendarModalOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
 
   useEffect(() => {
@@ -116,6 +118,11 @@ const PersonnelExpenseGroupEmployeesPage: React.FC = () => {
     setIsDutyTypesModalOpen(true)
   }
 
+  const handleStatusCalendar = (employee: Employee) => {
+    setSelectedEmployee(employee)
+    setIsStatusCalendarModalOpen(true)
+  }
+
   const handleDeleteEmployee = async (employeeId: number) => {
     if (window.confirm('Вы уверены, что хотите удалить этого сотрудника?')) {
       try {
@@ -143,6 +150,12 @@ const PersonnelExpenseGroupEmployeesPage: React.FC = () => {
 
   const handleDutyTypesUpdated = () => {
     setIsDutyTypesModalOpen(false)
+    setSelectedEmployee(null)
+    fetchEmployees()
+  }
+
+  const handleStatusCalendarUpdated = () => {
+    setIsStatusCalendarModalOpen(false)
     setSelectedEmployee(null)
     fetchEmployees()
   }
@@ -235,31 +248,39 @@ const PersonnelExpenseGroupEmployeesPage: React.FC = () => {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1 flex-wrap">
                       <button
                         onClick={() => handleEditEmployee(employee)}
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        className="inline-flex items-center px-2 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                         title="Изменить сотрудника"
                       >
                         <PencilIcon className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleTransferEmployee(employee)}
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        className="inline-flex items-center px-2 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                         title="Перевести в другую группу"
                       >
                         <ArrowRightIcon className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDutyTypes(employee)}
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                        className="inline-flex items-center px-2 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                         title="Управление типами нарядов"
                       >
                         <Cog6ToothIcon className="h-4 w-4" />
                       </button>
                       <button
+                        onClick={() => handleStatusCalendar(employee)}
+                        className="inline-flex items-center px-2 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                        title="Календарь статусов"
+                      >
+                        <CalendarIcon className="h-4 w-4 mr-1" />
+                        Календарь
+                      </button>
+                      <button
                         onClick={() => handleDeleteEmployee(employee.id)}
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        className="inline-flex items-center px-2 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                         title="Удалить сотрудника"
                       >
                         <TrashIcon className="h-4 w-4" />
@@ -316,6 +337,17 @@ const PersonnelExpenseGroupEmployeesPage: React.FC = () => {
           setSelectedEmployee(null)
         }}
         onSuccess={handleDutyTypesUpdated}
+        employee={selectedEmployee}
+      />
+
+      {/* Модальное окно календаря статусов сотрудника */}
+      <EmployeeStatusCalendarModal
+        isOpen={isStatusCalendarModalOpen}
+        onClose={() => {
+          setIsStatusCalendarModalOpen(false)
+          setSelectedEmployee(null)
+        }}
+        onUpdate={handleStatusCalendarUpdated}
         employee={selectedEmployee}
       />
     </div>

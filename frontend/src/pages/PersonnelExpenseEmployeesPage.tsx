@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { ChevronRightIcon, ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon, UserIcon } from '@heroicons/react/24/outline'
+import { ChevronRightIcon, ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon, UserIcon, CalendarIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import AddEmployeeModal from '../components/AddEmployeeModal'
@@ -7,6 +7,7 @@ import EditEmployeeModal from '../components/EditEmployeeModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import Breadcrumbs from '../components/Breadcrumbs'
 import StatusDetailsModal from '../components/StatusDetailsModal'
+import EmployeeStatusCalendarModal from '../components/EmployeeStatusCalendarModal'
 
 interface Structure {
   id: number
@@ -39,6 +40,7 @@ const PersonnelExpenseEmployeesPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
+  const [isStatusCalendarModalOpen, setIsStatusCalendarModalOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [pendingChanges, setPendingChanges] = useState<{ [key: number]: string }>({})
   const [saving, setSaving] = useState(false)
@@ -92,6 +94,11 @@ const PersonnelExpenseEmployeesPage: React.FC = () => {
       ...prev,
       [employeeId]: status
     }))
+  }
+
+  const handleStatusCalendar = (employee: Employee) => {
+    setSelectedEmployee(employee)
+    setIsStatusCalendarModalOpen(true)
   }
 
   const saveChanges = async () => {
@@ -272,6 +279,13 @@ const PersonnelExpenseEmployeesPage: React.FC = () => {
                           </button>
                         ))}
                         <button
+                          onClick={() => handleStatusCalendar(employee)}
+                          className="px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-700 hover:bg-purple-200"
+                          title="Календарь статусов"
+                        >
+                          <CalendarIcon className="h-3 w-3" />
+                        </button>
+                        <button
                           onClick={() => {
                             setSelectedEmployee(employee)
                             setIsStatusModalOpen(true)
@@ -314,6 +328,21 @@ const PersonnelExpenseEmployeesPage: React.FC = () => {
         onClose={() => {
           setIsStatusModalOpen(false)
           setSelectedEmployee(null)
+        }}
+        employee={selectedEmployee}
+      />
+
+      {/* Модальное окно календаря статусов сотрудника */}
+      <EmployeeStatusCalendarModal
+        isOpen={isStatusCalendarModalOpen}
+        onClose={() => {
+          setIsStatusCalendarModalOpen(false)
+          setSelectedEmployee(null)
+        }}
+        onUpdate={() => {
+          setIsStatusCalendarModalOpen(false)
+          setSelectedEmployee(null)
+          fetchEmployees()
         }}
         employee={selectedEmployee}
       />

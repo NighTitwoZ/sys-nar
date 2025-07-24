@@ -4,12 +4,14 @@ import {
   UserIcon,
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
-  ArrowLeftIcon
+  ArrowLeftIcon,
+  CalendarIcon
 } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 import StatusDetailsModal from '../components/StatusDetailsModal'
 import NotificationModal from '../components/NotificationModal'
 import Breadcrumbs from '../components/Breadcrumbs'
+import EmployeeStatusCalendarModal from '../components/EmployeeStatusCalendarModal'
 
 interface Structure {
   id: number
@@ -58,6 +60,7 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
+  const [isStatusCalendarModalOpen, setIsStatusCalendarModalOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [pendingChanges, setPendingChanges] = useState<{ [key: number]: string }>({})
   const [saving, setSaving] = useState(false)
@@ -160,6 +163,11 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
       [employeeId]: status
     }))
     setHasUnsavedChanges(true)
+  }
+
+  const handleStatusCalendar = (employee: Employee) => {
+    setSelectedEmployee(employee)
+    setIsStatusCalendarModalOpen(true)
   }
 
   const saveChanges = async () => {
@@ -507,6 +515,13 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
                           </button>
                         ))}
                         <button
+                          onClick={() => handleStatusCalendar(employee)}
+                          className="px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-700 hover:bg-purple-200"
+                          title="Календарь статусов"
+                        >
+                          <CalendarIcon className="h-3 w-3" />
+                        </button>
+                        <button
                           onClick={() => {
                             setSelectedEmployee(employee)
                             setIsStatusModalOpen(true)
@@ -584,6 +599,21 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Модальное окно календаря статусов сотрудника */}
+      <EmployeeStatusCalendarModal
+        isOpen={isStatusCalendarModalOpen}
+        onClose={() => {
+          setIsStatusCalendarModalOpen(false)
+          setSelectedEmployee(null)
+        }}
+        onUpdate={() => {
+          setIsStatusCalendarModalOpen(false)
+          setSelectedEmployee(null)
+          fetchEmployees()
+        }}
+        employee={selectedEmployee}
+      />
 
       {/* Модальное окно уведомлений */}
       <NotificationModal
