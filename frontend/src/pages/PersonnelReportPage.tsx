@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeftIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
+import AutoSyncManager from '../components/AutoSyncManager'
 
 interface Employee {
   id: number
@@ -242,6 +243,9 @@ const PersonnelReportPage: React.FC = () => {
             Список сотрудников по статусам
           </p>
         </div>
+
+        {/* Автоматическая синхронизация статусов */}
+        <AutoSyncManager onSyncComplete={fetchEmployees} />
 
         {/* Ошибка */}
         {error && (

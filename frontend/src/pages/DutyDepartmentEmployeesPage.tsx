@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { ArrowLeftIcon, UserGroupIcon, Cog6ToothIcon, MinusIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, UserGroupIcon, Cog6ToothIcon, MinusIcon, PlusIcon, CalendarIcon } from '@heroicons/react/24/outline'
 import { api } from '../services/api'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import EmployeeDutyTypesModal from '../components/EmployeeDutyTypesModal'
+import EmployeeDutyCalendarModal from '../components/EmployeeDutyCalendarModal'
 import NotificationModal from '../components/NotificationModal'
 import Breadcrumbs from '../components/Breadcrumbs'
 
@@ -61,6 +62,7 @@ const DutyDepartmentEmployeesPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null)
   const [isEmployeeDutyTypesModalOpen, setIsEmployeeDutyTypesModalOpen] = useState(false)
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [pendingChanges, setPendingChanges] = useState<{[key: number]: number}>({})
@@ -130,6 +132,16 @@ const DutyDepartmentEmployeesPage: React.FC = () => {
     setIsEmployeeDutyTypesModalOpen(false)
     setSelectedEmployee(null)
     fetchData()
+  }
+
+  const handleOpenCalendar = (employee: Employee) => {
+    setSelectedEmployee(employee)
+    setIsCalendarModalOpen(true)
+  }
+
+  const handleCalendarModalClosed = () => {
+    setIsCalendarModalOpen(false)
+    setSelectedEmployee(null)
   }
 
   const handleDutyCountChange = async (employeeId: number, change: number) => {
@@ -318,6 +330,7 @@ const DutyDepartmentEmployeesPage: React.FC = () => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Количество нарядов
                     </th>
+
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -376,6 +389,20 @@ const DutyDepartmentEmployeesPage: React.FC = () => {
                           </div>
                         </div>
                       </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-center">
+                        <div className="flex items-center justify-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenCalendar(employee)
+                            }}
+                            className="inline-flex items-center px-3 py-1 text-xs font-medium rounded bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+
+                          >
+                            <CalendarIcon className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -416,6 +443,13 @@ const DutyDepartmentEmployeesPage: React.FC = () => {
       <EmployeeDutyTypesModal
         isOpen={isEmployeeDutyTypesModalOpen}
         onClose={handleEmployeeDutyTypesModalClosed}
+        employee={selectedEmployee}
+      />
+
+      {/* Модальное окно календаря предпочтений */}
+      <EmployeeDutyCalendarModal
+        isOpen={isCalendarModalOpen}
+        onClose={handleCalendarModalClosed}
         employee={selectedEmployee}
       />
 

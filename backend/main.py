@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from database import engine, Base
-from routers import departments, employees, duty_types, duty_distribution, employee_duty_types, academic_duty, groups, employee_status_schedules
+from routers import departments, employees, duty_types, duty_distribution, employee_duty_types, academic_duty, groups, employee_status_schedules, employee_duty_preferences, auto_sync
 import redis.asyncio as redis
 import asyncio
 import logging
@@ -52,6 +52,10 @@ async def lifespan(app: FastAPI):
                 logger.error("❌ Не удалось подключиться к Redis, продолжаем без кэширования")
                 app.state.redis = None
     
+    # Запуск автоматической синхронизации статусов
+    logger.info("🚀 Запуск автоматической синхронизации статусов сотрудников")
+    asyncio.create_task(auto_sync.start_auto_sync())
+    
     yield
     
     # Закрытие соединений
@@ -83,6 +87,8 @@ app.include_router(employee_duty_types.router, prefix="/api/employee-duty-types"
 app.include_router(academic_duty.router, prefix="/api/academic-duty", tags=["Академические наряды"])
 app.include_router(groups.router, prefix="/api/groups", tags=["Группы"])
 app.include_router(employee_status_schedules.router, prefix="/api", tags=["Статусы сотрудников"])
+app.include_router(employee_duty_preferences.router, prefix="/api", tags=["Предпочтения сотрудников по дежурствам"])
+app.include_router(auto_sync.router, prefix="/api/auto-sync", tags=["Автоматическая синхронизация"])
 
 @app.get("/")
 async def root():

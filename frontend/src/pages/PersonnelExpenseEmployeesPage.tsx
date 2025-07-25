@@ -245,64 +245,64 @@ const PersonnelExpenseEmployeesPage: React.FC = () => {
               return (
                 <li key={employee.id}>
                   <div className="px-4 py-4 sm:px-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <UserIcon className="h-6 w-6 text-gray-400 mr-3" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {employee.rank && <span className="text-gray-600 mr-2">{employee.rank}</span>}
-                            {employee.last_name} {employee.first_name} {employee.middle_name}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {employee.position}
-                          </p>
-                          {hasPendingChange && (
-                            <p className="text-sm text-orange-600 font-medium">
-                              ⚠ Изменение не сохранено
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        {statusOptions.map((status) => (
-                          <button
-                            key={status.value}
-                            onClick={() => updateEmployeeStatus(employee.id, status.value)}
-                            className={`px-2 py-1 text-xs font-medium rounded ${
-                              currentStatus === status.value
-                                ? status.color
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                            title={status.label}
-                          >
-                            {status.label}
-                          </button>
-                        ))}
-                        <button
-                          onClick={() => handleStatusCalendar(employee)}
-                          className="px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-700 hover:bg-purple-200"
-                          title="Календарь статусов"
-                        >
-                          <CalendarIcon className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedEmployee(employee)
-                            setIsStatusModalOpen(true)
-                          }}
-                          disabled={currentStatus === 'НЛ'}
-                          className={`px-2 py-1 text-xs font-medium rounded ${
-                            currentStatus !== 'НЛ'
-                              ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                              : 'bg-gray-50 text-gray-300 cursor-not-allowed'
-                          }`}
-                          title={currentStatus === 'НЛ' ? 'Нет дополнительной информации' : 'Подробнее о статусе'}
-                        >
-                          {/* ExclamationTriangleIcon was removed from imports, so this button will not work as intended */}
-                          {/* <ExclamationTriangleIcon className="h-3 w-3" /> */}
-                        </button>
-                      </div>
-                    </div>
+                                         <div className="flex items-center justify-between">
+                       <div className="flex items-center">
+                         <UserIcon className="h-6 w-6 text-gray-400 mr-3" />
+                         <div>
+                           <p className="text-sm font-medium text-gray-900">
+                             {employee.rank && <span className="text-gray-600 mr-2">{employee.rank}</span>}
+                             {employee.last_name} {employee.first_name} {employee.middle_name}
+                           </p>
+                           <p className="text-sm text-gray-500">
+                             {employee.position}
+                           </p>
+                           {hasPendingChange && (
+                             <p className="text-sm text-orange-600 font-medium">
+                               ⚠ Изменение не сохранено
+                             </p>
+                           )}
+                         </div>
+                       </div>
+                       <div className="flex items-center space-x-1">
+                         {statusOptions.map((status) => (
+                           <button
+                             key={status.value}
+                             onClick={() => updateEmployeeStatus(employee.id, status.value)}
+                             className={`px-2 py-1 text-xs font-medium rounded ${
+                               currentStatus === status.value
+                                 ? status.color
+                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                             }`}
+                             title={status.label}
+                           >
+                             {status.label}
+                           </button>
+                         ))}
+                         <button
+                           onClick={() => {
+                             setSelectedEmployee(employee)
+                             setIsStatusModalOpen(true)
+                           }}
+                           disabled={currentStatus === 'НЛ'}
+                           className={`px-2 py-1 text-xs font-medium rounded ${
+                             currentStatus !== 'НЛ'
+                               ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                               : 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                           }`}
+                           title={currentStatus === 'НЛ' ? 'Нет дополнительной информации' : 'Подробнее о статусе'}
+                         >
+                           {/* ExclamationTriangleIcon was removed from imports, so this button will not work as intended */}
+                           {/* <ExclamationTriangleIcon className="h-3 w-3" /> */}
+                         </button>
+                         <button
+                           onClick={() => handleStatusCalendar(employee)}
+                           className="px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-700 hover:bg-purple-200"
+                           title="Календарь статусов"
+                         >
+                           <CalendarIcon className="h-3 w-3" />
+                         </button>
+                       </div>
+                     </div>
                   </div>
                 </li>
               )

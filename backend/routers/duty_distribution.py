@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from typing import List, Dict, Any, Optional
 from database import get_db
-from models.models import Department, Employee, DutyType, DutyRecord, EmployeeDutyType, DepartmentDutyDay
+from models.models import Department, Employee, DutyType, DutyRecord, EmployeeDutyType, DepartmentDutyDay, EmployeeDutyPreference, EmployeeStatusSchedule
 from pydantic import BaseModel
 from datetime import datetime, date, timedelta
 import calendar
@@ -404,9 +404,46 @@ async def select_employees_for_duty(
             'duration': last_duty_duration
         }
     
+    # Получаем предпочтения сотрудников для данной даты
+    employee_preferences = {}
+    for employee in employees:
+        preference_result = await db.execute(
+            select(EmployeeDutyPreference)
+            .where(EmployeeDutyPreference.employee_id == employee.id)
+            .where(EmployeeDutyPreference.date == duty_date)
+        )
+        preference = preference_result.scalar_one_or_none()
+        employee_preferences[employee.id] = preference
+    
+    # Получаем статусы сотрудников для данной даты (Болен, Командировка, Отпуск)
+    employee_statuses = {}
+    for employee in employees:
+        status_result = await db.execute(
+            select(EmployeeStatusSchedule)
+            .where(EmployeeStatusSchedule.employee_id == employee.id)
+            .where(EmployeeStatusSchedule.start_date <= duty_date)
+            .where(EmployeeStatusSchedule.end_date >= duty_date)
+        )
+        status = status_result.scalar_one_or_none()
+        employee_statuses[employee.id] = status
+    
     # Фильтруем доступных сотрудников
     available_employees = []
+    preferred_employees = []  # Сотрудники с предпочтительными датами
+    
     for employee in employees:
+        # Проверяем статусы сотрудника (Болен, Командировка, Отпуск)
+        status = employee_statuses.get(employee.id)
+        if status and status.status in ['Б', 'К', 'О']:  # Болен, Командировка, Отпуск
+            # Сотрудник не может заступать в эту дату из-за статуса
+            continue
+        
+        # Проверяем предпочтения сотрудника
+        preference = employee_preferences.get(employee.id)
+        if preference and preference.preference_type == 'unavailable':
+            # Сотрудник не может заступать в эту дату
+            continue
+        
         # Проверяем, не занят ли сотрудник в этот тип наряда в эту дату
         if (employee.id in employee_busy_dates and 
             date_key in employee_busy_dates[employee.id] and 
@@ -428,24 +465,35 @@ async def select_employees_for_duty(
             if days_since_last_duty < min_interval:
                 continue
         
-        available_employees.append(employee)
+        # Если у сотрудника предпочтительная дата, добавляем в отдельный список
+        if preference and preference.preference_type == 'preferred':
+            preferred_employees.append(employee)
+        else:
+            available_employees.append(employee)
     
-    if not available_employees:
+    # Объединяем предпочтительных и обычных сотрудников
+    all_available_employees = preferred_employees + available_employees
+    
+    if not all_available_employees:
         return []
     
     # Сортируем по общему количеству нарядов (приоритет тем, у кого меньше нарядов)
-    available_employees.sort(key=lambda emp: employee_duty_counts[emp.id])
+    all_available_employees.sort(key=lambda emp: employee_duty_counts[emp.id])
     
     # Выбираем сотрудников с наименьшим общим количеством нарядов
     selected_employees = []
-    current_count = employee_duty_counts[available_employees[0].id]
+    current_count = employee_duty_counts[all_available_employees[0].id]
     
     # Сначала берем всех сотрудников с минимальным количеством нарядов
-    candidates = [emp for emp in available_employees if employee_duty_counts[emp.id] == current_count]
+    candidates = [emp for emp in all_available_employees if employee_duty_counts[emp.id] == current_count]
     
-    # Если кандидатов больше, чем нужно, выбираем тех, кто давно не был в этом типе наряда
+    # Если кандидатов больше, чем нужно, приоритет отдаем предпочтительным сотрудникам
     if len(candidates) > people_needed:
-        candidates.sort(key=lambda emp: employee_last_duty_dates_by_type[(emp.id, duty_type_id)] or date.min)
+        # Сортируем: сначала предпочтительные, потом по дате последнего наряда
+        candidates.sort(key=lambda emp: (
+            emp not in preferred_employees,  # False (0) для предпочтительных, True (1) для обычных
+            employee_last_duty_dates_by_type[(emp.id, duty_type_id)] or date.min
+        ))
     
     selected_employees = candidates[:people_needed]
     
@@ -454,7 +502,7 @@ async def select_employees_for_duty(
         remaining_needed = people_needed - len(selected_employees)
         
         # Берем следующих по количеству нарядов
-        next_candidates = [emp for emp in available_employees if employee_duty_counts[emp.id] > current_count]
+        next_candidates = [emp for emp in all_available_employees if employee_duty_counts[emp.id] > current_count]
         next_candidates.sort(key=lambda emp: employee_duty_counts[emp.id])
         
         # Добавляем сотрудников с следующим количеством нарядов
@@ -463,7 +511,11 @@ async def select_employees_for_duty(
                 break
             
             same_count_candidates = [emp for emp in next_candidates if employee_duty_counts[emp.id] == next_count]
-            same_count_candidates.sort(key=lambda emp: employee_last_duty_dates_by_type[(emp.id, duty_type_id)] or date.min)
+            # Сортируем: сначала предпочтительные, потом по дате последнего наряда
+            same_count_candidates.sort(key=lambda emp: (
+                emp not in preferred_employees,  # False (0) для предпочтительных, True (1) для обычных
+                employee_last_duty_dates_by_type[(emp.id, duty_type_id)] or date.min
+            ))
             
             needed_from_this_count = min(remaining_needed - len(selected_employees), len(same_count_candidates))
             selected_employees.extend(same_count_candidates[:needed_from_this_count])

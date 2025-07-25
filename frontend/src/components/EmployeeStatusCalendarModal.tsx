@@ -41,10 +41,13 @@ const EmployeeStatusCalendarModal: React.FC<EmployeeStatusCalendarModalProps> = 
   const [error, setError] = useState<string | null>(null)
   const [selectedStatus, setSelectedStatus] = useState<string>('')
   const [isApplyingStatus, setIsApplyingStatus] = useState(false)
+  const [notes, setNotes] = useState<string>('')
+  const [currentStatus, setCurrentStatus] = useState<any>(null)
 
   useEffect(() => {
     if (isOpen && employee) {
       fetchEmployeeStatuses()
+      fetchCurrentStatus()
     }
   }, [isOpen, employee, currentDate])
 
@@ -73,6 +76,19 @@ const EmployeeStatusCalendarModal: React.FC<EmployeeStatusCalendarModalProps> = 
       setLoading(false)
     }
   }
+
+  const fetchCurrentStatus = async () => {
+    if (!employee) return
+
+    try {
+      const response = await api.get(`/employees/${employee.id}/current-status`)
+      setCurrentStatus(response.data)
+    } catch (err) {
+      console.error('Error fetching current status:', err)
+    }
+  }
+
+
 
   const handleDateClick = (date: Date) => {
     const dateString = date.toLocaleDateString('en-CA')
@@ -106,7 +122,8 @@ const EmployeeStatusCalendarModal: React.FC<EmployeeStatusCalendarModalProps> = 
       await api.post(`/employees/${employee.id}/status-schedules`, {
         status: statusCode,
         start_date: startDate,
-        end_date: endDate
+        end_date: endDate,
+        notes: notes.trim() || null
       })
 
       // Обновляем данные
@@ -133,12 +150,12 @@ const EmployeeStatusCalendarModal: React.FC<EmployeeStatusCalendarModalProps> = 
       const datesToRemove = selectedDates.map(d => d.toLocaleDateString('en-CA'))
       
       for (const status of employeeStatuses) {
-        const statusStart = new Date(status.start_date)
-        const statusEnd = new Date(status.end_date)
+        const statusStart = new Date(status.start_date + 'T00:00:00')
+        const statusEnd = new Date(status.end_date + 'T23:59:59')
         
         // Проверяем пересечение
         const hasIntersection = datesToRemove.some(dateStr => {
-          const date = new Date(dateStr)
+          const date = new Date(dateStr + 'T12:00:00')
           return date >= statusStart && date <= statusEnd
         })
         
@@ -159,10 +176,42 @@ const EmployeeStatusCalendarModal: React.FC<EmployeeStatusCalendarModalProps> = 
     }
   }
 
+  const handleClearAllStatuses = async () => {
+    if (!employee) return
+
+    try {
+      setIsApplyingStatus(true)
+      setError(null)
+
+      // Получаем год и месяц текущей даты
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth() + 1
+
+      // Удаляем все статусы за текущий месяц
+      await api.delete(`/employees/${employee.id}/status-schedules/month`, {
+        params: { year, month }
+      })
+
+      // Очищаем выбранные даты
+      setSelectedDates([])
+      
+      // Обновляем статусы
+      await fetchEmployeeStatuses()
+      await fetchCurrentStatus()
+      onUpdate() // Обновляем родительский компонент
+
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Ошибка при очистке всех статусов')
+    } finally {
+      setIsApplyingStatus(false)
+    }
+  }
+
   const handleClose = () => {
     setError(null)
     setSelectedDates([])
     setSelectedStatus('')
+    setNotes('')
     onClose()
   }
 
@@ -189,9 +238,13 @@ const EmployeeStatusCalendarModal: React.FC<EmployeeStatusCalendarModalProps> = 
       days.push(null)
     }
     
-    // Добавляем дни месяца
+    // Add days of the month - create dates in UTC to avoid timezone issues
     for (let day = 1; day <= daysInMonth; day++) {
-      days.push(new Date(year, month, day))
+      // Create date in UTC to avoid timezone shifts
+      const utcDate = new Date(Date.UTC(year, month, day))
+      // Convert back to local date for display
+      const localDate = new Date(utcDate.getTime() - (utcDate.getTimezoneOffset() * 60000))
+      days.push(localDate)
     }
     
     return days
@@ -205,9 +258,9 @@ const EmployeeStatusCalendarModal: React.FC<EmployeeStatusCalendarModalProps> = 
   const isDateWithStatus = (date: Date) => {
     const dateString = date.toLocaleDateString('en-CA')
     return employeeStatuses.some(status => {
-      const startDate = new Date(status.start_date)
-      const endDate = new Date(status.end_date)
-      const checkDate = new Date(dateString)
+      const startDate = new Date(status.start_date + 'T00:00:00')
+      const endDate = new Date(status.end_date + 'T23:59:59')
+      const checkDate = new Date(dateString + 'T12:00:00')
       return checkDate >= startDate && checkDate <= endDate
     })
   }
@@ -215,9 +268,9 @@ const EmployeeStatusCalendarModal: React.FC<EmployeeStatusCalendarModalProps> = 
   const getStatusForDate = (date: Date) => {
     const dateString = date.toLocaleDateString('en-CA')
     const status = employeeStatuses.find(s => {
-      const startDate = new Date(s.start_date)
-      const endDate = new Date(s.end_date)
-      const checkDate = new Date(dateString)
+      const startDate = new Date(s.start_date + 'T00:00:00')
+      const endDate = new Date(s.end_date + 'T23:59:59')
+      const checkDate = new Date(dateString + 'T12:00:00')
       return checkDate >= startDate && checkDate <= endDate
     })
     return status?.status
@@ -270,6 +323,29 @@ const EmployeeStatusCalendarModal: React.FC<EmployeeStatusCalendarModalProps> = 
               <p className="text-sm text-gray-500">
                 {employee.position} {employee.rank && `(${employee.rank})`}
               </p>
+              {currentStatus && (
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500">
+                    Текущий статус: 
+                    <span className={`ml-1 px-2 py-1 rounded text-xs font-medium ${
+                      currentStatus.status === 'Б' ? 'bg-red-100 text-red-800' :
+                      currentStatus.status === 'К' ? 'bg-blue-100 text-blue-800' :
+                      currentStatus.status === 'О' ? 'bg-green-100 text-green-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {currentStatus.status === 'Б' ? 'Болен' :
+                       currentStatus.status === 'К' ? 'Командировка' :
+                       currentStatus.status === 'О' ? 'Отпуск' :
+                       'Обычное состояние'}
+                    </span>
+                  </p>
+                  {currentStatus.notes && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Примечание: {currentStatus.notes}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             <button
               onClick={handleClose}
@@ -385,6 +461,21 @@ const EmployeeStatusCalendarModal: React.FC<EmployeeStatusCalendarModalProps> = 
               </button>
             </div>
 
+            {/* Поле примечаний */}
+            <div className="mb-4">
+              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">
+                Примечания:
+              </label>
+              <textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Введите примечания к статусу (необязательно)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                rows={3}
+              />
+            </div>
+
             {/* Кнопки действий */}
             <div className="flex space-x-3">
               <button
@@ -392,16 +483,25 @@ const EmployeeStatusCalendarModal: React.FC<EmployeeStatusCalendarModalProps> = 
                 disabled={!selectedStatus || selectedDates.length === 0 || isApplyingStatus}
                 className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isApplyingStatus ? 'Применение...' : 'Применить статус'}
+                {isApplyingStatus ? 'Применение...' : 'Применить'}
               </button>
               <button
                 onClick={handleRemoveStatus}
                 disabled={selectedDates.length === 0 || isApplyingStatus}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isApplyingStatus ? 'Удаление...' : 'Удалить статус'}
+                {isApplyingStatus ? 'Удаление...' : 'Удалить'}
+              </button>
+              <button
+                onClick={handleClearAllStatuses}
+                disabled={isApplyingStatus}
+                className="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isApplyingStatus ? 'Очистка...' : 'Очистить все'}
               </button>
             </div>
+
+
           </div>
 
           {/* Легенда */}

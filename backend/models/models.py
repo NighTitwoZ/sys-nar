@@ -60,6 +60,7 @@ class Employee(Base):
     duty_records = relationship("DutyRecord", back_populates="employee")
     status_details = relationship("EmployeeStatusDetails", back_populates="employee")
     status_schedules = relationship("EmployeeStatusSchedule", back_populates="employee")
+    duty_preferences = relationship("EmployeeDutyPreference", back_populates="employee")
     
     # Виртуальная связь для получения типов нарядов
     @property
@@ -156,4 +157,20 @@ class EmployeeStatusSchedule(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Связи
-    employee = relationship("Employee", back_populates="status_schedules") 
+    employee = relationship("Employee", back_populates="status_schedules")
+
+
+class EmployeeDutyPreference(Base):
+    """Модель предпочтений сотрудника по дежурствам"""
+    __tablename__ = "employee_duty_preferences"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    date = Column(Date, nullable=False)
+    preference_type = Column(String(20), nullable=False)  # 'preferred' или 'unavailable'
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Связи
+    employee = relationship("Employee", back_populates="duty_preferences") 

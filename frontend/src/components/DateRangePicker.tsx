@@ -60,7 +60,10 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
   };
 
   const handleDateClick = (day: number) => {
-    const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    // Create date in UTC to avoid timezone shifts
+    const utcDate = new Date(Date.UTC(currentMonth.getFullYear(), currentMonth.getMonth(), day));
+    // Convert back to local date for display
+    const clickedDate = new Date(utcDate.getTime() - (utcDate.getTimezoneOffset() * 60000));
     
     if (!dateRange.startDate || (dateRange.startDate && dateRange.endDate)) {
       // Начинаем новый диапазон
@@ -80,10 +83,14 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
     }
   };
 
-  // Функция для выбора всего месяца
+  // Function to select entire month
   const selectEntireMonth = () => {
-    const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-    const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+    // Create dates in UTC to avoid timezone shifts
+    const utcFirstDay = new Date(Date.UTC(currentMonth.getFullYear(), currentMonth.getMonth(), 1));
+    const utcLastDay = new Date(Date.UTC(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0));
+    // Convert back to local dates for display
+    const firstDay = new Date(utcFirstDay.getTime() - (utcFirstDay.getTimezoneOffset() * 60000));
+    const lastDay = new Date(utcLastDay.getTime() - (utcLastDay.getTimezoneOffset() * 60000));
     onDateRangeChange({ startDate: firstDay, endDate: lastDay });
     setIsOpen(false);
   };
@@ -101,7 +108,10 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
     }
     
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+      // Create date in UTC to avoid timezone shifts
+      const utcDate = new Date(Date.UTC(currentMonth.getFullYear(), currentMonth.getMonth(), day));
+      // Convert back to local date for display
+      const date = new Date(utcDate.getTime() - (utcDate.getTimezoneOffset() * 60000));
       const isRange = isInRange(date);
       const isStart = isStartDate(date);
       const isEnd = isEndDate(date);

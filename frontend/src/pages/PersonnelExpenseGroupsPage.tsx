@@ -465,79 +465,79 @@ const PersonnelExpenseGroupsPage: React.FC = () => {
                 
                 return (
                   <li key={employee.id} className="py-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-medium text-gray-900">
-                          {employee.rank && <span className="text-gray-600 mr-2">{employee.rank}</span>}
-                          {employee.last_name} {employee.first_name} {employee.middle_name}
-                        </span>
-                        <p className="text-sm text-gray-500">{employee.position}</p>
-                        {employee.status !== 'НЛ' && employee.status_updated_at && (
-                          <p className="text-sm text-gray-500">
-                            Статус изменен: {new Date(employee.status_updated_at).toLocaleString('ru-RU', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
-                        )}
-                        {employee.status !== 'НЛ' && employee.status_start_date && (
-                          <p className="text-sm text-gray-500">
-                            Дата начала статуса: {new Date(employee.status_start_date).toLocaleDateString('ru-RU')}
-                          </p>
-                        )}
-                        {employee.status !== 'НЛ' && employee.status_notes && (
-                          <p className="text-sm text-gray-500">
-                            Примечания: {employee.status_notes}
-                          </p>
-                        )}
-                        {hasPendingChange && (
-                          <p className="text-sm text-orange-600 font-medium">
-                            ⚠ Изменение не сохранено
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        {statusOptions.map((status) => (
-                          <button
-                            key={status.value}
-                            onClick={() => updateEmployeeStatus(employee.id, status.value)}
-                            className={`px-2 py-1 text-xs font-medium rounded ${
-                              currentStatus === status.value
-                                ? status.color
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                            title={status.title}
-                          >
-                            {status.label}
-                          </button>
-                        ))}
-                        <button
-                          onClick={() => handleStatusCalendar(employee)}
-                          className="px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-700 hover:bg-purple-200"
-                          title="Календарь статусов"
-                        >
-                          <CalendarIcon className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedEmployee(employee)
-                            setIsStatusModalOpen(true)
-                          }}
-                          disabled={currentStatus === 'НЛ'}
-                          className={`px-2 py-1 text-xs font-medium rounded ${
-                            currentStatus !== 'НЛ'
-                              ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                              : 'bg-gray-50 text-gray-300 cursor-not-allowed'
-                          }`}
-                          title={currentStatus === 'НЛ' ? 'Нет дополнительной информации' : 'Подробнее о статусе'}
-                        >
-                          <ExclamationTriangleIcon className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </div>
+                                         <div className="flex items-center justify-between">
+                       <div>
+                         <span className="font-medium text-gray-900">
+                           {employee.rank && <span className="text-gray-600 mr-2">{employee.rank}</span>}
+                           {employee.last_name} {employee.first_name} {employee.middle_name}
+                         </span>
+                         <p className="text-sm text-gray-500">{employee.position}</p>
+                         {employee.status !== 'НЛ' && employee.status_updated_at && (
+                           <p className="text-sm text-gray-500">
+                             Статус изменен: {new Date(employee.status_updated_at).toLocaleString('ru-RU', {
+                               day: '2-digit',
+                               month: '2-digit',
+                               year: 'numeric',
+                               hour: '2-digit',
+                               minute: '2-digit'
+                             })}
+                           </p>
+                         )}
+                         {employee.status !== 'НЛ' && employee.status_start_date && (
+                           <p className="text-sm text-gray-500">
+                             Дата начала статуса: {new Date(employee.status_start_date).toLocaleDateString('ru-RU')}
+                           </p>
+                         )}
+                         {employee.status !== 'НЛ' && employee.status_notes && (
+                           <p className="text-sm text-gray-500">
+                             Примечания: {employee.status_notes}
+                           </p>
+                         )}
+                         {hasPendingChange && (
+                           <p className="text-sm text-orange-600 font-medium">
+                             ⚠ Изменение не сохранено
+                           </p>
+                         )}
+                       </div>
+                       <div className="flex items-center space-x-1">
+                         {statusOptions.map((status) => (
+                           <button
+                             key={status.value}
+                             onClick={() => updateEmployeeStatus(employee.id, status.value)}
+                             className={`px-2 py-1 text-xs font-medium rounded ${
+                               currentStatus === status.value
+                                 ? status.color
+                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                             }`}
+                             title={status.title}
+                           >
+                             {status.label}
+                           </button>
+                         ))}
+                         <button
+                           onClick={() => {
+                             setSelectedEmployee(employee)
+                             setIsStatusModalOpen(true)
+                           }}
+                           disabled={currentStatus === 'НЛ'}
+                           className={`px-2 py-1 text-xs font-medium rounded ${
+                             currentStatus !== 'НЛ'
+                               ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                               : 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                           }`}
+                           title={currentStatus === 'НЛ' ? 'Нет дополнительной информации' : 'Подробнее о статусе'}
+                         >
+                           <ExclamationTriangleIcon className="h-3 w-3" />
+                         </button>
+                         <button
+                           onClick={() => handleStatusCalendar(employee)}
+                           className="px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-700 hover:bg-purple-200"
+                           title="Календарь статусов"
+                         >
+                           <CalendarIcon className="h-3 w-3" />
+                         </button>
+                       </div>
+                     </div>
                   </li>
                 )
               })}

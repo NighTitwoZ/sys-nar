@@ -40,7 +40,10 @@ const DatePicker: React.FC<DatePickerProps> = ({
       date.getFullYear() === selectedDate.getFullYear();
   };
   const handleDateClick = (day: number) => {
-    const newDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    // Create date in UTC to avoid timezone shifts
+    const utcDate = new Date(Date.UTC(currentMonth.getFullYear(), currentMonth.getMonth(), day));
+    // Convert back to local date for display
+    const newDate = new Date(utcDate.getTime() - (utcDate.getTimezoneOffset() * 60000));
     onDateSelect(newDate);
     setIsOpen(false);
   };
@@ -55,7 +58,10 @@ const DatePicker: React.FC<DatePickerProps> = ({
       days.push(<div key={`empty-${i}`} className="h-8"></div>);
     }
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+      // Create date in UTC to avoid timezone shifts
+      const utcDate = new Date(Date.UTC(currentMonth.getFullYear(), currentMonth.getMonth(), day));
+      // Convert back to local date for display
+      const date = new Date(utcDate.getTime() - (utcDate.getTimezoneOffset() * 60000));
       days.push(
         <button
           key={day}

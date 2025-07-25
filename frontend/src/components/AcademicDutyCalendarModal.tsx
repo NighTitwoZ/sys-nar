@@ -171,9 +171,13 @@ const AcademicDutyCalendarModal: React.FC<AcademicDutyCalendarModalProps> = ({
       days.push(null)
     }
     
-    // Добавляем дни месяца
+    // Add days of the month - create dates in UTC to avoid timezone issues
     for (let day = 1; day <= daysInMonth; day++) {
-      days.push(new Date(year, month, day))
+      // Create date in UTC to avoid timezone shifts
+      const utcDate = new Date(Date.UTC(year, month, day))
+      // Convert back to local date for display
+      const localDate = new Date(utcDate.getTime() - (utcDate.getTimezoneOffset() * 60000))
+      days.push(localDate)
     }
     
     return days

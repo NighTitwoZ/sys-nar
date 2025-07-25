@@ -5,38 +5,22 @@ from typing import List, Optional
 from database import get_db
 from models.models import Employee, EmployeeStatusSchedule
 from pydantic import BaseModel
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 router = APIRouter()
 
-@router.get("/test")
-async def test_endpoint():
-    """Тестовый endpoint для проверки работы роутера"""
-    return {"message": "Employee status schedules router is working"}
-
-@router.get("/check-table")
-async def check_table(db: AsyncSession = Depends(get_db)):
-    """Проверить существование таблицы employee_status_schedules"""
-    try:
-        # Проверяем, существует ли таблица
-        result = await db.execute("SELECT COUNT(*) FROM employee_status_schedules")
-        count = result.scalar()
-        return {"message": "Table exists", "count": count}
-    except Exception as e:
-        return {"message": "Table does not exist or error", "error": str(e)}
-
 class StatusScheduleCreate(BaseModel):
     status: str
-    start_date: str
-    end_date: str
+    start_date: date
+    end_date: date
     notes: Optional[str] = None
 
 class StatusScheduleResponse(BaseModel):
     id: int
     employee_id: int
     status: str
-    start_date: str
-    end_date: str
+    start_date: date
+    end_date: date
     notes: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -52,54 +36,212 @@ async def get_employee_status_schedules(
     db: AsyncSession = Depends(get_db)
 ):
     """Получить расписание статусов сотрудника"""
+    # Проверяем существование сотрудника
+    employee_result = await db.execute(select(Employee).where(Employee.id == employee_id))
+    employee = employee_result.scalar_one_or_none()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+    
+    # Формируем запрос
+    query = select(EmployeeStatusSchedule).where(EmployeeStatusSchedule.employee_id == employee_id)
+    
+    # Если указаны год и месяц, фильтруем по ним
+    if year and month:
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1) - date.resolution
+        else:
+            end_date = date(year, month + 1, 1) - date.resolution
+        
+        query = query.where(
+            and_(
+                EmployeeStatusSchedule.start_date <= end_date,
+                EmployeeStatusSchedule.end_date >= start_date
+            )
+        )
+    
+    query = query.order_by(EmployeeStatusSchedule.start_date)
+    
+    result = await db.execute(query)
+    schedules = result.scalars().all()
+    
+    return schedules
+
+@router.get("/employees/{employee_id}/current-status")
+async def get_employee_current_status(
+    employee_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить текущий статус сотрудника на основе расписания"""
+    # Проверяем существование сотрудника
+    employee_result = await db.execute(select(Employee).where(Employee.id == employee_id))
+    employee = employee_result.scalar_one_or_none()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+    
+    # Получаем текущую дату
+    today = date.today()
+    
+    # Ищем активный статус на сегодня
+    status_result = await db.execute(
+        select(EmployeeStatusSchedule).where(
+            and_(
+                EmployeeStatusSchedule.employee_id == employee_id,
+                EmployeeStatusSchedule.start_date <= today,
+                EmployeeStatusSchedule.end_date >= today
+            )
+        )
+    )
+    
+    current_status = status_result.scalar_one_or_none()
+    
+    if current_status:
+        return {
+            "status": current_status.status,
+            "notes": current_status.notes,
+            "start_date": current_status.start_date,
+            "end_date": current_status.end_date
+        }
+    else:
+        return {
+            "status": "НЛ",  # Нет статуса - обычное состояние
+            "notes": None,
+            "start_date": None,
+            "end_date": None
+        }
+
+@router.post("/employees/{employee_id}/sync-status")
+async def sync_employee_status(
+    employee_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Синхронизировать статус сотрудника с расписанием"""
+    # Проверяем существование сотрудника
+    employee_result = await db.execute(select(Employee).where(Employee.id == employee_id))
+    employee = employee_result.scalar_one_or_none()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+    
+    # Получаем текущую дату
+    today = date.today()
+    
+    # Ищем активный статус на сегодня
+    status_result = await db.execute(
+        select(EmployeeStatusSchedule).where(
+            and_(
+                EmployeeStatusSchedule.employee_id == employee_id,
+                EmployeeStatusSchedule.start_date <= today,
+                EmployeeStatusSchedule.end_date >= today
+            )
+        )
+    )
+    
+    current_status = status_result.scalar_one_or_none()
+    
+    # Обновляем статус сотрудника
+    if current_status:
+        employee.status = current_status.status
+        employee.status_updated_at = datetime.utcnow()
+    else:
+        employee.status = "НЛ"  # Нет статуса - обычное состояние
+        employee.status_updated_at = datetime.utcnow()
+    
+    await db.commit()
+    await db.refresh(employee)
+    
+    return {
+        "message": "Статус сотрудника синхронизирован",
+        "current_status": employee.status,
+        "updated_at": employee.status_updated_at
+    }
+
+@router.post("/sync-all-employees")
+async def sync_all_employees_status(db: AsyncSession = Depends(get_db)):
+    """Синхронизировать статусы всех сотрудников с их расписаниями"""
     try:
-        print(f"DEBUG: Получение статусов для сотрудника {employee_id}, год: {year}, месяц: {month}")
+        # Получаем всех активных сотрудников
+        employees_result = await db.execute(
+            select(Employee).where(Employee.is_active == True)
+        )
+        employees = employees_result.scalars().all()
         
-        # Проверяем существование сотрудника
-        employee_result = await db.execute(select(Employee).where(Employee.id == employee_id))
-        employee = employee_result.scalar_one_or_none()
-        if not employee:
-            print(f"DEBUG: Сотрудник {employee_id} не найден")
-            raise HTTPException(status_code=404, detail="Сотрудник не найден")
+        updated_count = 0
+        today = date.today()
         
-        print(f"DEBUG: Сотрудник найден: {employee.first_name} {employee.last_name}")
-        
-        # Формируем запрос
-        query = select(EmployeeStatusSchedule).where(EmployeeStatusSchedule.employee_id == employee_id)
-        
-        # Если указаны год и месяц, фильтруем по ним
-        if year and month:
-            start_date = date(year, month, 1)
-            if month == 12:
-                end_date = date(year + 1, 1, 1) - date.resolution
-            else:
-                end_date = date(year, month + 1, 1) - date.resolution
-            
-            print(f"DEBUG: Фильтрация по периоду: {start_date} - {end_date}")
-            
-            query = query.where(
-                and_(
-                    EmployeeStatusSchedule.start_date <= end_date,
-                    EmployeeStatusSchedule.end_date >= start_date
+        for employee in employees:
+            # Ищем активный статус на сегодня
+            status_result = await db.execute(
+                select(EmployeeStatusSchedule).where(
+                    and_(
+                        EmployeeStatusSchedule.employee_id == employee.id,
+                        EmployeeStatusSchedule.start_date <= today,
+                        EmployeeStatusSchedule.end_date >= today
+                    )
                 )
             )
+            
+            current_status = status_result.scalar_one_or_none()
+            
+            # Обновляем статус сотрудника
+            if current_status:
+                employee.status = current_status.status
+            else:
+                employee.status = "НЛ"  # Нет статуса - обычное состояние
+            
+            employee.status_updated_at = datetime.utcnow()
+            updated_count += 1
         
-        query = query.order_by(EmployeeStatusSchedule.start_date)
+        await db.commit()
         
-        print(f"DEBUG: Выполнение запроса к базе данных")
-        result = await db.execute(query)
-        schedules = result.scalars().all()
-        
-        print(f"DEBUG: Найдено {len(schedules)} статусов")
-        
-        return schedules
+        return {
+            "message": f"Статусы {updated_count} сотрудников синхронизированы",
+            "updated_count": updated_count
+        }
         
     except Exception as e:
-        print(f"ERROR: Ошибка при получении статусов: {str(e)}")
-        print(f"ERROR: Тип ошибки: {type(e)}")
-        import traceback
-        print(f"ERROR: Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера: {str(e)}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Ошибка при синхронизации: {str(e)}")
+async def get_employee_current_status(
+    employee_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить текущий статус сотрудника на основе расписания"""
+    # Проверяем существование сотрудника
+    employee_result = await db.execute(select(Employee).where(Employee.id == employee_id))
+    employee = employee_result.scalar_one_or_none()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+    
+    # Получаем текущую дату
+    today = date.today()
+    
+    # Ищем активный статус на сегодня
+    status_result = await db.execute(
+        select(EmployeeStatusSchedule).where(
+            and_(
+                EmployeeStatusSchedule.employee_id == employee_id,
+                EmployeeStatusSchedule.start_date <= today,
+                EmployeeStatusSchedule.end_date >= today
+            )
+        )
+    )
+    
+    current_status = status_result.scalar_one_or_none()
+    
+    if current_status:
+        return {
+            "status": current_status.status,
+            "notes": current_status.notes,
+            "start_date": current_status.start_date,
+            "end_date": current_status.end_date
+        }
+    else:
+        return {
+            "status": "НЛ",  # Нет статуса - обычное состояние
+            "notes": None,
+            "start_date": None,
+            "end_date": None
+        }
 
 @router.post("/employees/{employee_id}/status-schedules", response_model=StatusScheduleResponse)
 async def create_employee_status_schedule(
@@ -119,12 +261,9 @@ async def create_employee_status_schedule(
     if schedule_data.status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Неверный статус. Допустимые значения: {', '.join(valid_statuses)}")
     
-    # Парсим даты
-    try:
-        start_date = datetime.strptime(schedule_data.start_date, '%Y-%m-%d').date()
-        end_date = datetime.strptime(schedule_data.end_date, '%Y-%m-%d').date()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Неверный формат даты. Используйте формат YYYY-MM-DD")
+    # Получаем даты из модели
+    start_date = schedule_data.start_date
+    end_date = schedule_data.end_date
     
     # Проверяем, что начальная дата не позже конечной
     if start_date > end_date:
@@ -159,6 +298,16 @@ async def create_employee_status_schedule(
     await db.commit()
     await db.refresh(new_schedule)
     
+    # Синхронизируем статус сотрудника
+    await sync_employee_status(employee_id, db)
+    
+    # Запускаем автоматическую синхронизацию для этого сотрудника
+    try:
+        from . import auto_sync
+        await auto_sync.sync_employee_status_auto(employee_id, db)
+    except Exception as e:
+        logger.warning(f"Ошибка при автоматической синхронизации: {e}")
+    
     return new_schedule
 
 @router.delete("/employees/status-schedules/{schedule_id}")
@@ -179,6 +328,16 @@ async def delete_employee_status_schedule(
     # Удаляем расписание
     await db.delete(schedule)
     await db.commit()
+    
+    # Синхронизируем статус сотрудника
+    await sync_employee_status(schedule.employee_id, db)
+    
+    # Запускаем автоматическую синхронизацию для этого сотрудника
+    try:
+        from . import auto_sync
+        await auto_sync.sync_employee_status_auto(schedule.employee_id, db)
+    except Exception as e:
+        logger.warning(f"Ошибка при автоматической синхронизации: {e}")
     
     return {"message": "Расписание статуса успешно удалено"}
 
@@ -203,12 +362,9 @@ async def update_employee_status_schedule(
     if schedule_data.status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Неверный статус. Допустимые значения: {', '.join(valid_statuses)}")
     
-    # Парсим даты
-    try:
-        start_date = datetime.strptime(schedule_data.start_date, '%Y-%m-%d').date()
-        end_date = datetime.strptime(schedule_data.end_date, '%Y-%m-%d').date()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Неверный формат даты. Используйте формат YYYY-MM-DD")
+    # Получаем даты из модели
+    start_date = schedule_data.start_date
+    end_date = schedule_data.end_date
     
     # Проверяем, что начальная дата не позже конечной
     if start_date > end_date:
@@ -241,4 +397,85 @@ async def update_employee_status_schedule(
     await db.commit()
     await db.refresh(schedule)
     
-    return schedule 
+    # Синхронизируем статус сотрудника
+    await sync_employee_status(schedule.employee_id, db)
+    
+    # Запускаем автоматическую синхронизацию для этого сотрудника
+    try:
+        from . import auto_sync
+        await auto_sync.sync_employee_status_auto(schedule.employee_id, db)
+    except Exception as e:
+        logger.warning(f"Ошибка при автоматической синхронизации: {e}")
+    
+    return schedule
+
+@router.delete("/employees/{employee_id}/status-schedules/month")
+async def delete_employee_status_schedules_for_month(
+    employee_id: int,
+    year: int,
+    month: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Удалить все статусы сотрудника за указанный месяц"""
+    try:
+        # Проверяем, что сотрудник существует
+        employee_result = await db.execute(
+            select(Employee).where(Employee.id == employee_id)
+        )
+        employee = employee_result.scalar_one_or_none()
+        
+        if not employee:
+            raise HTTPException(status_code=404, detail="Сотрудник не найден")
+        
+        # Вычисляем начальную и конечную даты месяца
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            end_date = date(year, month + 1, 1) - timedelta(days=1)
+        
+        # Находим все статусы, которые пересекаются с указанным месяцем
+        schedules_result = await db.execute(
+            select(EmployeeStatusSchedule).where(
+                and_(
+                    EmployeeStatusSchedule.employee_id == employee_id,
+                    and_(
+                        EmployeeStatusSchedule.start_date <= end_date,
+                        EmployeeStatusSchedule.end_date >= start_date
+                    )
+                )
+            )
+        )
+        
+        schedules = schedules_result.scalars().all()
+        
+        if not schedules:
+            return {"message": "Статусы за указанный месяц не найдены"}
+        
+        # Удаляем найденные статусы
+        deleted_count = 0
+        for schedule in schedules:
+            await db.delete(schedule)
+            deleted_count += 1
+        
+        await db.commit()
+        
+        # Синхронизируем статус сотрудника
+        await sync_employee_status(employee_id, db)
+        
+        # Запускаем автоматическую синхронизацию для этого сотрудника
+        try:
+            from . import auto_sync
+            await auto_sync.sync_employee_status_auto(employee_id, db)
+        except Exception as e:
+            logger.warning(f"Ошибка при автоматической синхронизации: {e}")
+        
+        return {
+            "message": f"Удалено {deleted_count} статусов за {month}/{year}",
+            "deleted_count": deleted_count
+        }
+        
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Ошибка при удалении статусов за месяц: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при удалении статусов: {str(e)}") 

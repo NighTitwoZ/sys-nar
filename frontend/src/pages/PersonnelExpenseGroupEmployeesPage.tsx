@@ -275,8 +275,7 @@ const PersonnelExpenseGroupEmployeesPage: React.FC = () => {
                         className="inline-flex items-center px-2 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                         title="Календарь статусов"
                       >
-                        <CalendarIcon className="h-4 w-4 mr-1" />
-                        Календарь
+                        <CalendarIcon className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteEmployee(employee.id)}
